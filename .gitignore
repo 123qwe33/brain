@@ -1,4 +1,21 @@
+# Binaries
+brain
+init
+
+# Database
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Editor artifacts
+*~
+*.~undo-tree~
+
+# Agent artifacts
+/.agent-shell/
+
+# Existing ignores
 node_modules/
 .env
 *.log
-/.agent-shell/

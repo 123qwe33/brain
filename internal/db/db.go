@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS edges (
 CREATE TABLE IF NOT EXISTS justifications (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     node_id INTEGER,
+    group_id INTEGER NOT NULL DEFAULT 1,
     justifier_id INTEGER,
     FOREIGN KEY(node_id) REFERENCES nodes(id),
     FOREIGN KEY(justifier_id) REFERENCES nodes(id)
@@ -56,6 +57,9 @@ func InitDB(dataSourceName string) (*sql.DB, error) {
 		db.Close()
 		return nil, err
 	}
+
+	// Migrate existing justifications table if group_id column is absent
+	_, _ = db.Exec("ALTER TABLE justifications ADD COLUMN group_id INTEGER NOT NULL DEFAULT 1")
 
 	return db, nil
 }
