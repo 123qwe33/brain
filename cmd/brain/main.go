@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -13,6 +14,7 @@ import (
 var (
 	queryTypeFlag   string
 	relationsInFlag bool
+	graphDepthFlag  int
 
 	rootCmd = &cobra.Command{
 		Use:   "brain",
@@ -132,11 +134,32 @@ var (
 			}
 		},
 	}
+
+	graphCmd = &cobra.Command{
+		Use:   "graph [label]",
+		Short: "Returns a radial BFS context bubble as JSON",
+		Args:  cobra.ExactArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			r := getRMS()
+			result, err := r.Graph(args[0], graphDepthFlag)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error traversing graph: %v\n", err)
+				os.Exit(1)
+			}
+			out, err := json.MarshalIndent(result, "", "  ")
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error serializing result: %v\n", err)
+				os.Exit(1)
+			}
+			fmt.Println(string(out))
+		},
+	}
 )
 
 func init() {
 	queryCmd.Flags().StringVarP(&queryTypeFlag, "type", "t", "", "Filter by node type")
 	relationsCmd.Flags().BoolVar(&relationsInFlag, "in", false, "Show incoming edges instead of outgoing")
+	graphCmd.Flags().IntVarP(&graphDepthFlag, "depth", "d", 1, "BFS traversal depth")
 
 	rootCmd.AddCommand(assertCmd)
 	rootCmd.AddCommand(justifyCmd)
@@ -144,6 +167,7 @@ func init() {
 	rootCmd.AddCommand(invalidateCmd)
 	rootCmd.AddCommand(linkCmd)
 	rootCmd.AddCommand(relationsCmd)
+	rootCmd.AddCommand(graphCmd)
 }
 
 func getRMS() *rms.RMS {

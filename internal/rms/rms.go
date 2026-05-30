@@ -224,6 +224,123 @@ type Edge struct {
 	OtherLabel string
 }
 
+type GraphNode struct {
+	Label  string `json:"label"`
+	Type   string `json:"type"`
+	Status string `json:"status"`
+}
+
+type GraphResult struct {
+	Center       string      `json:"center"`
+	DepthReached int         `json:"depth_reached"`
+	Nodes        []GraphNode `json:"nodes"`
+	Edges        []GraphEdge `json:"edges"`
+}
+
+type GraphEdge struct {
+	From     string `json:"from"`
+	To       string `json:"to"`
+	Relation string `json:"relation"`
+}
+
+func (r *RMS) Graph(startLabel string, maxDepth int) (*GraphResult, error) {
+	var startID int
+	err := r.db.QueryRow("SELECT id FROM nodes WHERE label = ?", startLabel).Scan(&startID)
+	if err != nil {
+		return nil, fmt.Errorf("start node %s not found: %v", startLabel, err)
+	}
+
+	visited := make(map[int]bool)
+	seenEdges := make(map[[3]string]bool)
+	var resultNodes []GraphNode
+	var resultEdges []GraphEdge
+	depthReached := 0
+
+	type queueItem struct {
+		id    int
+		depth int
+	}
+	queue := []queueItem{{id: startID, depth: 0}}
+
+	for len(queue) > 0 {
+		item := queue[0]
+		queue = queue[1:]
+
+		if visited[item.id] {
+			continue
+		}
+		visited[item.id] = true
+
+		var node GraphNode
+		err := r.db.QueryRow("SELECT label, type, status FROM nodes WHERE id = ?", item.id).Scan(&node.Label, &node.Type, &node.Status)
+		if err != nil {
+			return nil, err
+		}
+		resultNodes = append(resultNodes, node)
+
+		if item.depth > depthReached {
+			depthReached = item.depth
+		}
+
+		if item.depth >= maxDepth {
+			continue
+		}
+
+		// Outgoing edges
+		rows, err := r.db.Query("SELECT n.label, e.relation, e.to_id FROM edges e JOIN nodes n ON n.id = e.to_id WHERE e.from_id = ?", item.id)
+		if err != nil {
+			return nil, err
+		}
+		for rows.Next() {
+			var toLabel, relation string
+			var toID int
+			if err := rows.Scan(&toLabel, &relation, &toID); err != nil {
+				rows.Close()
+				return nil, err
+			}
+			key := [3]string{node.Label, relation, toLabel}
+			if !seenEdges[key] {
+				seenEdges[key] = true
+				resultEdges = append(resultEdges, GraphEdge{From: node.Label, To: toLabel, Relation: relation})
+			}
+			if !visited[toID] {
+				queue = append(queue, queueItem{id: toID, depth: item.depth + 1})
+			}
+		}
+		rows.Close()
+
+		// Incoming edges
+		rows, err = r.db.Query("SELECT n.label, e.relation, e.from_id FROM edges e JOIN nodes n ON n.id = e.from_id WHERE e.to_id = ?", item.id)
+		if err != nil {
+			return nil, err
+		}
+		for rows.Next() {
+			var fromLabel, relation string
+			var fromID int
+			if err := rows.Scan(&fromLabel, &relation, &fromID); err != nil {
+				rows.Close()
+				return nil, err
+			}
+			key := [3]string{fromLabel, relation, node.Label}
+			if !seenEdges[key] {
+				seenEdges[key] = true
+				resultEdges = append(resultEdges, GraphEdge{From: fromLabel, To: node.Label, Relation: relation})
+			}
+			if !visited[fromID] {
+				queue = append(queue, queueItem{id: fromID, depth: item.depth + 1})
+			}
+		}
+		rows.Close()
+	}
+
+	return &GraphResult{
+		Center:       startLabel,
+		DepthReached: depthReached,
+		Nodes:        resultNodes,
+		Edges:        resultEdges,
+	}, nil
+}
+
 func (r *RMS) Relations(label string, incoming bool) ([]Edge, error) {
 	var id int
 	if err := r.db.QueryRow("SELECT id FROM nodes WHERE label = ?", label).Scan(&id); err != nil {
