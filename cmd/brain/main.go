@@ -11,8 +11,8 @@ import (
 )
 
 var (
-	queryTypeFlag    string
-	relationsInFlag  bool
+	queryTypeFlag   string
+	relationsInFlag bool
 
 	rootCmd = &cobra.Command{
 		Use:   "brain",
@@ -32,12 +32,12 @@ var (
 	}
 
 	justifyCmd = &cobra.Command{
-		Use:   "justify [node] [justifier]",
-		Short: "Adds a justification linking a node to its justifier",
-		Args:  cobra.ExactArgs(2),
+		Use:   "justify [node] [justifier...] -- creates an AND-group from all provided justifiers",
+		Short: "Adds a justification linking a node to its justifier(s)",
+		Args:  cobra.MinimumNArgs(2),
 		Run: func(cmd *cobra.Command, args []string) {
 			r := getRMS()
-			if err := r.Justify(args[0], args[1]); err != nil {
+			if err := r.Justify(args[0], args[1:]); err != nil {
 				log.Fatalf("Error justifying node: %v", err)
 			}
 		},

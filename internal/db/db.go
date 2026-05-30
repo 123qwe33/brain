@@ -23,7 +23,6 @@ CREATE TABLE IF NOT EXISTS edges (
     FOREIGN KEY(from_id) REFERENCES nodes(id),
     FOREIGN KEY(to_id) REFERENCES nodes(id)
 );
-
 CREATE TABLE IF NOT EXISTS justifications (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     node_id INTEGER,

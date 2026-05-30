@@ -30,20 +30,34 @@ func (r *RMS) Assert(label, nodeType, content string) error {
 	return r.Reevaluate(id)
 }
 
-func (r *RMS) Justify(nodeLabel, justifierLabel string) error {
-	var nodeID, justifierID int
+func (r *RMS) Justify(nodeLabel string, justifierLabels []string) error {
+	var nodeID int
 	err := r.db.QueryRow("SELECT id FROM nodes WHERE label = ?", nodeLabel).Scan(&nodeID)
 	if err != nil {
 		return fmt.Errorf("node %s not found: %v", nodeLabel, err)
 	}
-	err = r.db.QueryRow("SELECT id FROM nodes WHERE label = ?", justifierLabel).Scan(&justifierID)
-	if err != nil {
-		return fmt.Errorf("justifier %s not found: %v", justifierLabel, err)
+
+	var justifierIDs []int
+	for _, label := range justifierLabels {
+		var jID int
+		err = r.db.QueryRow("SELECT id FROM nodes WHERE label = ?", label).Scan(&jID)
+		if err != nil {
+			return fmt.Errorf("justifier %s not found: %v", label, err)
+		}
+		justifierIDs = append(justifierIDs, jID)
 	}
 
-	_, err = r.db.Exec("INSERT INTO justifications (node_id, justifier_id) VALUES (?, ?)", nodeID, justifierID)
+	var groupID int
+	err = r.db.QueryRow("SELECT COALESCE(MAX(group_id), 0) + 1 FROM justifications WHERE node_id = ?", nodeID).Scan(&groupID)
 	if err != nil {
 		return err
+	}
+
+	for _, jID := range justifierIDs {
+		_, err = r.db.Exec("INSERT INTO justifications (node_id, group_id, justifier_id) VALUES (?, ?, ?)", nodeID, groupID, jID)
+		if err != nil {
+			return err
+		}
 	}
 
 	return r.Reevaluate(nodeID)
@@ -101,42 +115,45 @@ func (r *RMS) Reevaluate(id int) error {
 		return err
 	}
 
-	// Check justifications
-	rows, err := r.db.Query("SELECT justifier_id FROM justifications WHERE node_id = ?", id)
+	rows, err := r.db.Query("SELECT group_id, justifier_id FROM justifications WHERE node_id = ?", id)
 	if err != nil {
 		return err
 	}
 	defer rows.Close()
 
-	hasJustifications := false
-	anyJustifierIn := false
-
+	groups := make(map[int][]int)
 	for rows.Next() {
-		hasJustifications = true
-		var justifierID int
-		if err := rows.Scan(&justifierID); err != nil {
+		var gID, jID int
+		if err := rows.Scan(&gID, &jID); err != nil {
 			return err
 		}
+		groups[gID] = append(groups[gID], jID)
+	}
 
-		var justifierStatus string
-		err := r.db.QueryRow("SELECT status FROM nodes WHERE id = ?", justifierID).Scan(&justifierStatus)
-		if err != nil {
-			continue // Should we handle this error?
+	if len(groups) == 0 {
+		return nil // Bedrock node, leave status unchanged
+	}
+
+	anyGroupPasses := false
+	for _, justifierIDs := range groups {
+		allInGroupIn := true
+		for _, jID := range justifierIDs {
+			var status string
+			err := r.db.QueryRow("SELECT status FROM nodes WHERE id = ?", jID).Scan(&status)
+			if err != nil || status != "IN" {
+				allInGroupIn = false
+				break
+			}
 		}
-
-		if justifierStatus == "IN" {
-			anyJustifierIn = true
+		if allInGroupIn {
+			anyGroupPasses = true
 			break
 		}
 	}
 
-	newStatus := currentStatus
-	if hasJustifications {
-		if anyJustifierIn {
-			newStatus = "IN"
-		} else {
-			newStatus = "OUT"
-		}
+	newStatus := "OUT"
+	if anyGroupPasses {
+		newStatus = "IN"
 	}
 
 	if newStatus != currentStatus {
@@ -162,7 +179,7 @@ func (r *RMS) Link(from, to, relation string) error {
 	var existing int
 	err := r.db.QueryRow("SELECT id FROM edges WHERE from_id = ? AND to_id = ? AND relation = ?", fromID, toID, relation).Scan(&existing)
 	if err == nil {
-		return nil // already exists
+		return nil
 	}
 	if err != sql.ErrNoRows {
 		return err
@@ -203,8 +220,8 @@ func (r *RMS) QueryLabelWithType(label, nodeType string) (string, error) {
 }
 
 type Edge struct {
-	Relation    string
-	OtherLabel  string
+	Relation   string
+	OtherLabel string
 }
 
 func (r *RMS) Relations(label string, incoming bool) ([]Edge, error) {
@@ -216,15 +233,9 @@ func (r *RMS) Relations(label string, incoming bool) ([]Edge, error) {
 	var rows *sql.Rows
 	var err error
 	if incoming {
-		rows, err = r.db.Query(`
-			SELECT n.label, e.relation FROM edges e
-			JOIN nodes n ON n.id = e.from_id
-			WHERE e.to_id = ?`, id)
+		rows, err = r.db.Query("SELECT n.label, e.relation FROM edges e JOIN nodes n ON n.id = e.from_id WHERE e.to_id = ?", id)
 	} else {
-		rows, err = r.db.Query(`
-			SELECT n.label, e.relation FROM edges e
-			JOIN nodes n ON n.id = e.to_id
-			WHERE e.from_id = ?`, id)
+		rows, err = r.db.Query("SELECT n.label, e.relation FROM edges e JOIN nodes n ON n.id = e.to_id WHERE e.from_id = ?", id)
 	}
 	if err != nil {
 		return nil, err
