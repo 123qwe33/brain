@@ -82,6 +82,18 @@ func (r *RMS) Query() ([]string, error) {
 	return labels, nil
 }
 
+func (r *RMS) QueryLabel(label string) (string, error) {
+	var content string
+	err := r.db.QueryRow("SELECT content FROM nodes WHERE label = ? AND status = 'IN'", label).Scan(&content)
+	if err == sql.ErrNoRows {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	return content, nil
+}
+
 func (r *RMS) Reevaluate(id int) error {
 	var currentStatus string
 	err := r.db.QueryRow("SELECT status FROM nodes WHERE id = ?", id).Scan(&currentStatus)

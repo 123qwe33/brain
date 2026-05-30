@@ -41,16 +41,27 @@ var (
 	}
 
 	queryCmd = &cobra.Command{
-		Use:   "query",
-		Short: "Selects nodes where status = 'IN'",
+		Use:   "query [label]",
+		Short: "Selects nodes where status = 'IN' or returns content of a specific node",
+		Args:  cobra.MaximumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			r := getRMS()
-			nodes, err := r.Query()
-			if err != nil {
-				log.Fatalf("Error querying nodes: %v", err)
-			}
-			for _, node := range nodes {
-				fmt.Println(node)
+			if len(args) == 0 {
+				nodes, err := r.Query()
+				if err != nil {
+					log.Fatalf("Error querying nodes: %v", err)
+				}
+				for _, node := range nodes {
+					fmt.Println(node)
+				}
+			} else {
+				content, err := r.QueryLabel(args[0])
+				if err != nil {
+					log.Fatalf("Error querying node content: %v", err)
+				}
+				if content != "" {
+					fmt.Println(content)
+				}
 			}
 		},
 	}
