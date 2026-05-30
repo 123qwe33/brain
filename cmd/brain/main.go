@@ -11,6 +11,9 @@ import (
 )
 
 var (
+	queryTypeFlag    string
+	relationsInFlag  bool
+
 	rootCmd = &cobra.Command{
 		Use:   "brain",
 		Short: "Brain is a Reason Maintenance System CLI",
@@ -47,20 +50,38 @@ var (
 		Run: func(cmd *cobra.Command, args []string) {
 			r := getRMS()
 			if len(args) == 0 {
-				nodes, err := r.Query()
-				if err != nil {
-					log.Fatalf("Error querying nodes: %v", err)
-				}
-				for _, node := range nodes {
-					fmt.Println(node)
+				if queryTypeFlag != "" {
+					nodes, err := r.QueryType(queryTypeFlag)
+					if err != nil {
+						log.Fatalf("Error querying nodes: %v", err)
+					}
+					for _, node := range nodes {
+						fmt.Println(node)
+					}
+				} else {
+					nodes, err := r.Query()
+					if err != nil {
+						log.Fatalf("Error querying nodes: %v", err)
+					}
+					for _, node := range nodes {
+						fmt.Println(node)
+					}
 				}
 			} else {
-				content, err := r.QueryLabel(args[0])
+				var content string
+				var err error
+				if queryTypeFlag != "" {
+					content, err = r.QueryLabelWithType(args[0], queryTypeFlag)
+				} else {
+					content, err = r.QueryLabel(args[0])
+				}
 				if err != nil {
 					log.Fatalf("Error querying node content: %v", err)
 				}
 				if content != "" {
 					fmt.Println(content)
+				} else {
+					os.Exit(1)
 				}
 			}
 		},
@@ -77,13 +98,52 @@ var (
 			}
 		},
 	}
+
+	linkCmd = &cobra.Command{
+		Use:   "link [from] [to] [relation]",
+		Short: "Creates a directed edge between two nodes",
+		Args:  cobra.ExactArgs(3),
+		Run: func(cmd *cobra.Command, args []string) {
+			r := getRMS()
+			if err := r.Link(args[0], args[1], args[2]); err != nil {
+				fmt.Fprintf(os.Stderr, "Error linking nodes: %v\n", err)
+				os.Exit(1)
+			}
+		},
+	}
+
+	relationsCmd = &cobra.Command{
+		Use:   "relations [label]",
+		Short: "Lists edges for a node (outgoing by default, incoming with --in)",
+		Args:  cobra.ExactArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			r := getRMS()
+			edges, err := r.Relations(args[0], relationsInFlag)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error fetching relations: %v\n", err)
+				os.Exit(1)
+			}
+			for _, e := range edges {
+				if relationsInFlag {
+					fmt.Printf("%s -[%s]->\n", e.OtherLabel, e.Relation)
+				} else {
+					fmt.Printf("-[%s]-> %s\n", e.Relation, e.OtherLabel)
+				}
+			}
+		},
+	}
 )
 
 func init() {
+	queryCmd.Flags().StringVarP(&queryTypeFlag, "type", "t", "", "Filter by node type")
+	relationsCmd.Flags().BoolVar(&relationsInFlag, "in", false, "Show incoming edges instead of outgoing")
+
 	rootCmd.AddCommand(assertCmd)
 	rootCmd.AddCommand(justifyCmd)
 	rootCmd.AddCommand(queryCmd)
 	rootCmd.AddCommand(invalidateCmd)
+	rootCmd.AddCommand(linkCmd)
+	rootCmd.AddCommand(relationsCmd)
 }
 
 func getRMS() *rms.RMS {

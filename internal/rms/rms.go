@@ -150,6 +150,98 @@ func (r *RMS) Reevaluate(id int) error {
 	return nil
 }
 
+func (r *RMS) Link(from, to, relation string) error {
+	var fromID, toID int
+	if err := r.db.QueryRow("SELECT id FROM nodes WHERE label = ?", from).Scan(&fromID); err != nil {
+		return fmt.Errorf("node %s not found: %v", from, err)
+	}
+	if err := r.db.QueryRow("SELECT id FROM nodes WHERE label = ?", to).Scan(&toID); err != nil {
+		return fmt.Errorf("node %s not found: %v", to, err)
+	}
+
+	var existing int
+	err := r.db.QueryRow("SELECT id FROM edges WHERE from_id = ? AND to_id = ? AND relation = ?", fromID, toID, relation).Scan(&existing)
+	if err == nil {
+		return nil // already exists
+	}
+	if err != sql.ErrNoRows {
+		return err
+	}
+
+	_, err = r.db.Exec("INSERT INTO edges (from_id, to_id, relation) VALUES (?, ?, ?)", fromID, toID, relation)
+	return err
+}
+
+func (r *RMS) QueryType(nodeType string) ([]string, error) {
+	rows, err := r.db.Query("SELECT label FROM nodes WHERE status = 'IN' AND type = ?", nodeType)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var labels []string
+	for rows.Next() {
+		var label string
+		if err := rows.Scan(&label); err != nil {
+			return nil, err
+		}
+		labels = append(labels, label)
+	}
+	return labels, nil
+}
+
+func (r *RMS) QueryLabelWithType(label, nodeType string) (string, error) {
+	var content string
+	err := r.db.QueryRow("SELECT content FROM nodes WHERE label = ? AND status = 'IN' AND type = ?", label, nodeType).Scan(&content)
+	if err == sql.ErrNoRows {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	return content, nil
+}
+
+type Edge struct {
+	Relation    string
+	OtherLabel  string
+}
+
+func (r *RMS) Relations(label string, incoming bool) ([]Edge, error) {
+	var id int
+	if err := r.db.QueryRow("SELECT id FROM nodes WHERE label = ?", label).Scan(&id); err != nil {
+		return nil, fmt.Errorf("node %s not found: %v", label, err)
+	}
+
+	var rows *sql.Rows
+	var err error
+	if incoming {
+		rows, err = r.db.Query(`
+			SELECT n.label, e.relation FROM edges e
+			JOIN nodes n ON n.id = e.from_id
+			WHERE e.to_id = ?`, id)
+	} else {
+		rows, err = r.db.Query(`
+			SELECT n.label, e.relation FROM edges e
+			JOIN nodes n ON n.id = e.to_id
+			WHERE e.from_id = ?`, id)
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var edges []Edge
+	for rows.Next() {
+		var e Edge
+		if err := rows.Scan(&e.OtherLabel, &e.Relation); err != nil {
+			return nil, err
+		}
+		edges = append(edges, e)
+	}
+	return edges, nil
+}
+
 func (r *RMS) triggerDependents(id int) error {
 	rows, err := r.db.Query("SELECT node_id FROM justifications WHERE justifier_id = ?", id)
 	if err != nil {
