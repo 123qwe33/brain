@@ -15,6 +15,9 @@ var (
 	queryTypeFlag   string
 	relationsInFlag bool
 	graphDepthFlag  int
+	logNodeFlag     string
+	logTypeFlag     string
+	logLimitFlag    int
 
 	rootCmd = &cobra.Command{
 		Use:   "brain",
@@ -154,12 +157,45 @@ var (
 			fmt.Println(string(out))
 		},
 	}
+
+	logCmd = &cobra.Command{
+		Use:   "log",
+		Short: "Shows recent event log entries",
+		Args:  cobra.NoArgs,
+		Run: func(cmd *cobra.Command, args []string) {
+			r := getRMS()
+			events, err := r.Log(logNodeFlag, logTypeFlag, logLimitFlag)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error querying event log: %v\n", err)
+				os.Exit(1)
+			}
+			for _, e := range events {
+				fmt.Printf("%d	%s	%s	node=%s", e.ID, e.OccurredAt, e.EventType, e.NodeLabel)
+				if e.AgentLabel != "" {
+					fmt.Printf("	agent=%s", e.AgentLabel)
+				}
+				if e.OldStatus != "" || e.NewStatus != "" {
+					fmt.Printf("	status=%s->%s", e.OldStatus, e.NewStatus)
+				}
+				if e.OldConfidence != 0 || e.NewConfidence != 0 {
+					fmt.Printf("	confidence=%.3f->%.3f", e.OldConfidence, e.NewConfidence)
+				}
+				if e.Detail != "" {
+					fmt.Printf("	detail=%s", e.Detail)
+				}
+				fmt.Println()
+			}
+		},
+	}
 )
 
 func init() {
 	queryCmd.Flags().StringVarP(&queryTypeFlag, "type", "t", "", "Filter by node type")
 	relationsCmd.Flags().BoolVar(&relationsInFlag, "in", false, "Show incoming edges instead of outgoing")
 	graphCmd.Flags().IntVarP(&graphDepthFlag, "depth", "d", 1, "BFS traversal depth")
+	logCmd.Flags().StringVar(&logNodeFlag, "node", "", "Filter by node label")
+	logCmd.Flags().StringVar(&logTypeFlag, "type", "", "Filter by event type")
+	logCmd.Flags().IntVar(&logLimitFlag, "limit", 20, "Limit number of events shown")
 
 	rootCmd.AddCommand(assertCmd)
 	rootCmd.AddCommand(justifyCmd)
@@ -168,6 +204,7 @@ func init() {
 	rootCmd.AddCommand(linkCmd)
 	rootCmd.AddCommand(relationsCmd)
 	rootCmd.AddCommand(graphCmd)
+	rootCmd.AddCommand(logCmd)
 }
 
 func getRMS() *rms.RMS {
