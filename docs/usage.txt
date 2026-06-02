@@ -1,0 +1,333 @@
+What the brain is
+
+Think of the brain as a smart notebook with a truth checker.
+
+It does not just save random notes. It saves:
+- facts,
+- connections between facts,
+- and dependencies that say “this only counts as true if these other things are still true.”
+
+So instead of one giant messy text dump, it’s more like a little knowledge graph.
+
+---
+
+The core idea
+
+There are 3 main things:
+
+1. Nodes = facts or ideas  
+   Example: “Weft is a CLI wrapper around SmallCode.”
+
+2. Edges = relationships  
+   Example: “Weft consumes context.txt” or “CLI runs in Docker.”
+
+3. Justifications = truth dependencies  
+   Example: “This design decision is true only because these other facts are true.”
+
+If a foundational fact gets invalidated, the stuff depending on it can fall out too.  
+That’s the big superpower.
+
+---
+
+The main commands
+
+1. `brain assert`
+Use this to add a fact.
+
+Example:
+  ┌──────────────────────────────────────────────────────────── bash
+  │ brain assert proj_weft project_fact "Weft is a CLI wrapper for running SmallCode with per-turn context."
+  └────────────────────────────────────────────────────────────
+
+Meaning:
+- proj_weft = label for the thing
+- project_fact = type of fact
+  • the quoted text = the actual content
+
+If the label already exists, it updates it.
+
+---
+
+2. `brain link`
+Use this to connect two facts.
+
+Example:
+  ┌──────────────────────────────────────────────────────────── bash
+  │ brain link comp_wrapper iface_context_file "consumes"
+  └────────────────────────────────────────────────────────────
+
+Meaning:
+- comp_wrapper consumes iface_context_file
+
+This is like drawing an arrow in your notebook.
+
+---
+
+3. `brain justify`
+Use this when one fact depends on other facts being true.
+
+Example:
+  ┌──────────────────────────────────────────────────────────── bash
+  │ brain justify comp_wrapper proj_weft
+  └────────────────────────────────────────────────────────────
+
+Meaning:
+- comp_wrapper is only true because proj_weft is true
+
+If proj_weft gets invalidated later, anything justified by it can be affected too.
+
+You can also justify a node with multiple supports:
+  ┌──────────────────────────────────────────────────────────── bash
+  │ brain justify comp_wrapper fact_a fact_b
+  └────────────────────────────────────────────────────────────
+
+That means the node depends on both.
+
+---
+
+4. `brain query`
+Use this to ask, “What is currently true?”
+
+Examples:
+  ┌──────────────────────────────────────────────────────────── bash
+  │ brain query
+  └────────────────────────────────────────────────────────────
+Shows all currently IN nodes.
+
+  ┌──────────────────────────────────────────────────────────── bash
+  │ brain query --type project_fact
+  └────────────────────────────────────────────────────────────
+Shows only project facts.
+
+  ┌──────────────────────────────────────────────────────────── bash
+  │ brain query comp_wrapper
+  └────────────────────────────────────────────────────────────
+Shows the content for that node.
+
+This is the “what do we know right now?” command.
+
+---
+
+5. `brain graph`
+Use this to see a little neighborhood around a node.
+
+Example:
+  ┌──────────────────────────────────────────────────────────── bash
+  │ brain graph proj_weft --depth 2
+  └────────────────────────────────────────────────────────────
+
+Meaning:
+- show proj_weft
+  • plus nodes connected nearby
+  • plus connections out to depth 2
+
+This is super useful when you want context fast.
+
+---
+
+6. `brain relations`
+Use this to see what points to or from a node.
+
+Examples:
+  ┌──────────────────────────────────────────────────────────── bash
+  │ brain relations comp_wrapper
+  └────────────────────────────────────────────────────────────
+Shows outgoing relations.
+
+  ┌──────────────────────────────────────────────────────────── bash
+  │ brain relations comp_wrapper --in
+  └────────────────────────────────────────────────────────────
+Shows incoming relations.
+
+This answers: “What does this node connect to?” or “What connects to this node?”
+
+---
+
+7. `brain invalidate`
+Use this when something is no longer true.
+
+Example:
+  ┌──────────────────────────────────────────────────────────── bash
+  │ brain invalidate comp_wrapper
+  └────────────────────────────────────────────────────────────
+
+This marks the node as OUT and can cascade to dependents.
+
+This is how the brain can say, “That assumption is no longer valid.”
+
+---
+
+8. `brain log`
+Use this to see what happened recently.
+
+Example:
+  ┌──────────────────────────────────────────────────────────── bash
+  │ brain log --limit 20
+  └────────────────────────────────────────────────────────────
+
+Or:
+  ┌──────────────────────────────────────────────────────────── bash
+  │ brain log --node comp_wrapper
+  └────────────────────────────────────────────────────────────
+
+This is your event history.
+
+---
+
+The mental model
+
+A very simple way to think about it:
+
+- assert = “I learned a thing”
+- link = “this thing relates to that thing”
+- justify = “this thing depends on those things”
+- query = “what do we know right now?”
+- graph = “show me the local neighborhood”
+- invalidate = “that fact broke”
+- log = “show me the trail of changes”
+
+---
+
+The best way to use it
+
+Use it like a project memory system.
+
+Good things to store:
+  • project facts
+  • architecture decisions
+  • tool interfaces
+  • component boundaries
+  • known gotchas
+  • hypotheses you’re not sure about
+
+Not so good to store:
+  • vague emotional thoughts
+  • giant unstructured transcripts
+  • things you haven’t confirmed yet, unless marked as hypotheses
+
+---
+
+The recommended workflow
+
+Step 1: Learn the project
+Ask the brain:
+  ┌──────────────────────────────────────────────────────────── bash
+  │ brain query
+  │ brain graph proj_weft --depth 2
+  │ brain relations proj_weft
+  └────────────────────────────────────────────────────────────
+
+This gives you orientation.
+
+Step 2: Add facts
+When you learn something real, store it:
+  ┌──────────────────────────────────────────────────────────── bash
+  │ brain assert comp_wrapper project_fact "The wrapper feeds a context file into SmallCode and captures the output."
+  └────────────────────────────────────────────────────────────
+
+Step 3: Connect facts
+If one thing uses another:
+  ┌──────────────────────────────────────────────────────────── bash
+  │ brain link comp_wrapper iface_context_file "consumes"
+  └────────────────────────────────────────────────────────────
+
+Step 4: Make dependencies explicit
+If a claim rests on other claims:
+  ┌──────────────────────────────────────────────────────────── bash
+  │ brain justify dec_use_docker proj_weft
+  └────────────────────────────────────────────────────────────
+
+Step 5: Update truth when reality changes
+If something turns out to be wrong:
+  ┌──────────────────────────────────────────────────────────── bash
+  │ brain invalidate old_fact
+  └────────────────────────────────────────────────────────────
+
+That helps keep the brain honest.
+
+---
+
+The label naming style
+
+The repo uses prefixes to keep things organized:
+
+- proj_ = the project itself
+- sys_ = infrastructure or services
+- comp_ = a component
+- iface_ = an interface between things
+- tool_ = a tool or schema
+- fact_ = a general fact
+- dec_ = a decision
+- task_ = a task
+- hyp_ = a hypothesis
+
+Example:
+  ┌──────────────────────────────────────────────────────────── bash
+  │ brain assert hyp_docker_first hypothesis "Weft should probably start with Docker after the CLI spine is stable."
+  └────────────────────────────────────────────────────────────
+
+---
+
+Node types, in plain English
+
+- project_fact = verified project truth
+- hypothesis = a guess or inference
+- tool_schema = how a tool works
+- personal_fact = human-only stuff
+- live_source = live external stuff
+
+For a coding project, you’ll mostly use:
+- project_fact
+- hypothesis
+- tool_schema
+
+---
+
+ELI5 analogy
+
+Imagine you’re building with LEGO:
+
+- nodes are the LEGO pieces
+- links are how the pieces fit together
+- justifications are the instructions that say “this tower stands because these supports exist”
+- invalidate is when a support piece breaks and the tower has to be rechecked
+
+So the brain is not just a pile of notes.  
+It’s a living structure of claims.
+
+---
+
+For this project specifically
+
+For Weft, the brain is useful because it can store things like:
+  • what Weft is
+  • how it talks to SmallCode
+  • what the Docker boundary is
+  • what the context file format is
+  • what decisions we made and why
+  • what’s still a guess
+
+That means a fresh agent can load the brain and quickly understand the project without rereading a huge chat transcript.
+
+---
+
+Tiny example
+
+If I were teaching a monkey brain, I’d say:
+
+  1. “Write down what the project is.”
+  2. “Write down the parts of the project.”
+  3. “Draw arrows between the parts.”
+  4. “Say which facts depend on which facts.”
+  5. “Ask the brain what is true before assuming anything.”
+  6. “If something changes, mark the old thing invalid.”
+
+That’s it.
+
+---
+
+One-sentence summary
+
+Brain is a truth-checked memory graph for projects: store facts, connect them, mark dependencies, and ask it what’s still true.
+
+If you want, I can next turn this into a super short “brain quickstart” cheat sheet with just the 6 commands and 3 rules.
