@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Brain Viewer</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: system-ui, -apple-system, sans-serif;
+  background: #0d1117;
+  color: #c9d1d9;
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ── Sidebar ── */
+#sidebar {
+  width: 240px;
+  min-width: 240px;
+  background: #161b22;
+  border-right: 1px solid #30363d;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  overflow-y: auto;
+}
+
+.sidebar-section {
+  padding: 14px 16px;
+  border-bottom: 1px solid #21262d;
+}
+
+#sidebar h1 {
+  font-size: 15px;
+  font-weight: 700;
+  color: #f0f6fc;
+  margin-bottom: 4px;
+}
+
+#stats {
+  font-size: 11px;
+  color: #8b949e;
+  line-height: 1.6;
+}
+
+#search {
+  width: 100%;
+  padding: 6px 10px;
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  color: #c9d1d9;
+  font-size: 12px;
+}
+#search:focus { outline: none; border-color: #58a6ff; }
+
+.section-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #8b949e;
+  margin-bottom: 8px;
+}
+
+.filter-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+
+.chip {
+  padding: 3px 9px;
+  border-radius: 12px;
+  border: 1px solid;
+  font-size: 11px;
+  cursor: pointer;
+  user-select: none;
+  transition: opacity 0.15s;
+  white-space: nowrap;
+}
+.chip.off { opacity: 0.28; }
+
+#legend { display: flex; flex-direction: column; gap: 5px; }
+.legend-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  color: #8b949e;
+}
+.legend-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.legend-hint {
+  font-size: 10px;
+  color: #484f58;
+  margin-top: 6px;
+}
+
+/* ── Graph ── */
+#graph-wrap {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+svg {
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+}
+svg:active { cursor: grabbing; }
+
+.link {
+  stroke: #30363d;
+  stroke-opacity: 0.9;
+  stroke-width: 1.5;
+  fill: none;
+}
+.link.highlighted { stroke: #58a6ff; stroke-opacity: 1; stroke-width: 2; }
+
+.link-label {
+  font-size: 9px;
+  fill: #484f58;
+  pointer-events: none;
+  text-anchor: middle;
+}
+
+.node { cursor: pointer; }
+.node circle {
+  stroke-width: 2;
+  transition: filter 0.15s;
+}
+.node.out circle { opacity: 0.28; stroke-dasharray: 5 3; }
+.node.out text { opacity: 0.35; }
+.node.selected circle { filter: drop-shadow(0 0 6px currentColor); stroke-width: 3; }
+
+.node text {
+  font-size: 10px;
+  fill: #8b949e;
+  pointer-events: none;
+  text-anchor: middle;
+  dominant-baseline: hanging;
+}
+
+#empty-msg {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #484f58;
+  font-size: 14px;
+  pointer-events: none;
+}
+
+/* ── Detail panel ── */
+#detail {
+  width: 280px;
+  min-width: 280px;
+  background: #161b22;
+  border-left: 1px solid #30363d;
+  display: none;
+  flex-direction: column;
+  overflow: hidden;
+}
+#detail.open { display: flex; }
+
+#detail-header {
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid #21262d;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+#detail-label {
+  font-size: 14px;
+  font-weight: 700;
+  color: #f0f6fc;
+  word-break: break-all;
+  line-height: 1.3;
+}
+
+#detail-close {
+  background: none;
+  border: none;
+  color: #8b949e;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  padding: 0 2px;
+  flex-shrink: 0;
+}
+#detail-close:hover { color: #f0f6fc; }
+
+#detail-body {
+  padding: 12px 16px;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.d-row { display: flex; flex-direction: column; gap: 3px; }
+.d-key { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: #8b949e; }
+.d-val { font-size: 12px; color: #c9d1d9; word-break: break-word; }
+
+.badge {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.badge.IN  { background: #0f2d1f; color: #3fb950; border: 1px solid #238636; }
+.badge.OUT { background: #2d0f0f; color: #f85149; border: 1px solid #da3633; }
+
+.conf-bar { height: 4px; background: #21262d; border-radius: 2px; margin-top: 4px; }
+.conf-fill { height: 100%; border-radius: 2px; background: #3fb950; }
+
+.content-box {
+  background: #0d1117;
+  border: 1px solid #21262d;
+  border-radius: 6px;
+  padding: 10px;
+  font-size: 11px;
+  line-height: 1.55;
+  color: #c9d1d9;
+  max-height: 180px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.just-group {
+  background: #0d1117;
+  border: 1px solid #21262d;
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin-top: 4px;
+}
+.just-group-label { font-size: 10px; color: #8b949e; margin-bottom: 5px; }
+.just-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.just-chip {
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  cursor: pointer;
+  border: 1px solid;
+  transition: opacity 0.15s;
+}
+.just-chip:hover { opacity: 0.75; }
+
+.edge-list { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
+.edge-item { font-size: 11px; display: flex; align-items: baseline; gap: 4px; }
+.edge-rel { color: #484f58; font-style: italic; }
+.edge-node { cursor: pointer; }
+.edge-node:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+
+<div id="sidebar">
+  <div class="sidebar-section">
+    <h1>Brain Viewer</h1>
+    <div id="stats">Loading…</div>
+  </div>
+  <div class="sidebar-section">
+    <div class="section-label">Search</div>
+    <input id="search" type="text" placeholder="Filter by label or content…">
+  </div>
+  <div class="sidebar-section">
+    <div class="section-label" style="margin-bottom:6px">Status</div>
+    <div class="filter-chips">
+      <span class="chip" data-group="status" data-val="IN"  style="border-color:#3fb950;color:#3fb950">IN</span>
+      <span class="chip" data-group="status" data-val="OUT" style="border-color:#f85149;color:#f85149">OUT</span>
+    </div>
+  </div>
+  <div class="sidebar-section">
+    <div class="section-label" style="margin-bottom:6px">Type</div>
+    <div id="type-chips" class="filter-chips"></div>
+  </div>
+  <div class="sidebar-section">
+    <div class="section-label" style="margin-bottom:6px">Legend</div>
+    <div id="legend"></div>
+    <div class="legend-hint" style="margin-top:8px">Node size = confidence<br>Dashed/dim = OUT status</div>
+  </div>
+</div>
+
+<div id="graph-wrap">
+  <svg id="graph"></svg>
+  <div id="empty-msg" style="display:none">No nodes match current filters</div>
+</div>
+
+<div id="detail">
+  <div id="detail-header">
+    <div id="detail-label"></div>
+    <button id="detail-close" title="Close">&times;</button>
+  </div>
+  <div id="detail-body"></div>
+</div>
+
+<script src="/d3.min.js"></script>
+<script>
+// ── Color map ──────────────────────────────────────────────────────────────
+const TYPE_COLORS = {
+  project_fact: '#4A90D9',
+  hypothesis:   '#E8A838',
+  tool_schema:  '#5BAD6F',
+  premise:      '#9B9B9B',
+  decision:     '#B07FD4',
+};
+const FALLBACK_COLOR = '#D45B5B';
+
+function typeColor(type) {
+  return TYPE_COLORS[type] || FALLBACK_COLOR;
+}
+
+function nodeRadius(d) {
+  return 8 + (d.confidence || 0) * 9;
+}
+
+// ── State ──────────────────────────────────────────────────────────────────
+let ALL = { nodes: [], edges: [], justifications: [] };
+let activeStatus = new Set(['IN', 'OUT']);
+let activeTypes  = new Set();
+let searchQuery  = '';
+let selectedLabel = null;
+let simulation;
+
+// ── Boot ───────────────────────────────────────────────────────────────────
+fetch('/api/data')
+  .then(r => r.json())
+  .then(data => {
+    ALL.nodes          = data.nodes          || [];
+    ALL.edges          = data.edges          || [];
+    ALL.justifications = data.justifications || [];
+
+    const types = [...new Set(ALL.nodes.map(n => n.type))].sort();
+    activeTypes = new Set(types);
+
+    buildTypeChips(types);
+    buildLegend(types);
+    updateStats();
+    render();
+  })
+  .catch(err => {
+    document.getElementById('stats').textContent = 'Error loading data: ' + err;
+  });
+
+// ── Filter chips ───────────────────────────────────────────────────────────
+function buildTypeChips(types) {
+  const wrap = document.getElementById('type-chips');
+  types.forEach(t => {
+    const c = document.createElement('span');
+    c.className = 'chip';
+    c.dataset.group = 'type';
+    c.dataset.val = t;
+    c.textContent = t;
+    c.style.borderColor = typeColor(t);
+    c.style.color = typeColor(t);
+    wrap.appendChild(c);
+  });
+}
+
+function buildLegend(types) {
+  const wrap = document.getElementById('legend');
+  types.forEach(t => {
+    wrap.innerHTML += `
+      <div class="legend-row">
+        <span class="legend-dot" style="background:${typeColor(t)}"></span>
+        ${t}
+      </div>`;
+  });
+}
+
+document.addEventListener('click', e => {
+  const chip = e.target.closest('.chip');
+  if (!chip) return;
+  const { group, val } = chip.dataset;
+  const set = group === 'status' ? activeStatus : activeTypes;
+  if (set.has(val)) { set.delete(val); chip.classList.add('off'); }
+  else              { set.add(val);    chip.classList.remove('off'); }
+  render();
+});
+
+document.getElementById('search').addEventListener('input', e => {
+  searchQuery = e.target.value.toLowerCase().trim();
+  render();
+});
+
+// ── Stats ──────────────────────────────────────────────────────────────────
+function updateStats(visN, visE) {
+  const total  = ALL.nodes.length;
+  const inCnt  = ALL.nodes.filter(n => n.status === 'IN').length;
+  const outCnt = total - inCnt;
+  const el = document.getElementById('stats');
+  if (visN === undefined) {
+    el.textContent = `${total} nodes  ·  ${inCnt} IN  ·  ${outCnt} OUT`;
+  } else {
+    el.textContent = `Showing ${visN} nodes, ${visE} edges`;
+  }
+}
+
+// ── Filter logic ───────────────────────────────────────────────────────────
+function isVisible(node) {
+  if (!activeStatus.has(node.status)) return false;
+  if (!activeTypes.has(node.type))   return false;
+  if (searchQuery) {
+    const hit = node.label.toLowerCase().includes(searchQuery) ||
+                node.content.toLowerCase().includes(searchQuery);
+    if (!hit) return false;
+  }
+  return true;
+}
+
+// ── Render ─────────────────────────────────────────────────────────────────
+function render() {
+  const visSet = new Set(ALL.nodes.filter(isVisible).map(n => n.label));
+  const nodes  = ALL.nodes.filter(n => visSet.has(n.label));
+  const edges  = ALL.edges.filter(e => visSet.has(e.from) && visSet.has(e.to));
+
+  document.getElementById('empty-msg').style.display = nodes.length === 0 ? '' : 'none';
+  updateStats(nodes.length, edges.length);
+  drawGraph(nodes, edges);
+}
+
+// ── D3 graph ───────────────────────────────────────────────────────────────
+function drawGraph(nodes, edges) {
+  const svg = d3.select('#graph');
+  svg.selectAll('*').remove();
+
+  const wrap = document.getElementById('graph-wrap');
+  const W = wrap.clientWidth;
+  const H = wrap.clientHeight;
+
+  // Arrowhead marker
+  const defs = svg.append('defs');
+  defs.append('marker')
+    .attr('id', 'arrow')
+    .attr('viewBox', '0 -5 10 10')
+    .attr('refX', 0)
+    .attr('refY', 0)
+    .attr('markerWidth', 6)
+    .attr('markerHeight', 6)
+    .attr('orient', 'auto')
+    .append('path')
+    .attr('d', 'M0,-5L10,0L0,5')
+    .attr('fill', '#30363d');
+
+  const root = svg.append('g');
+
+  svg.call(
+    d3.zoom()
+      .scaleExtent([0.08, 6])
+      .on('zoom', e => root.attr('transform', e.transform))
+  );
+
+  // Click background → deselect
+  svg.on('click', () => selectNode(null));
+
+  // Sim copies (D3 mutates these)
+  const simNodes = nodes.map(n => ({ ...n }));
+  const labelIndex = new Map(simNodes.map(n => [n.label, n]));
+
+  const simEdges = edges.map(e => ({
+    source: e.from,
+    target: e.to,
+    relation: e.relation,
+  }));
+
+  if (simulation) simulation.stop();
+
+  simulation = d3.forceSimulation(simNodes)
+    .force('link', d3.forceLink(simEdges).id(d => d.label).distance(110))
+    .force('charge', d3.forceManyBody().strength(-250))
+    .force('center', d3.forceCenter(W / 2, H / 2))
+    .force('collide', d3.forceCollide(d => nodeRadius(d) + 14));
+
+  // Edges
+  const linkG = root.append('g');
+  const link = linkG.selectAll('line')
+    .data(simEdges)
+    .join('line')
+    .attr('class', 'link')
+    .attr('marker-end', 'url(#arrow)');
+
+  // Edge relation labels (always visible, low contrast)
+  const linkLabel = root.append('g')
+    .selectAll('text')
+    .data(simEdges)
+    .join('text')
+    .attr('class', 'link-label')
+    .text(d => d.relation);
+
+  // Nodes
+  const nodeG = root.append('g');
+  const node = nodeG.selectAll('g')
+    .data(simNodes, d => d.label)
+    .join('g')
+    .attr('class', d => `node ${d.status === 'OUT' ? 'out' : ''}`)
+    .call(dragBehavior())
+    .on('click', (event, d) => {
+      event.stopPropagation();
+      selectNode(d.label);
+    });
+
+  const color = d => typeColor(d.type);
+
+  node.append('circle')
+    .attr('r', nodeRadius)
+    .attr('fill', d => color(d) + '22')
+    .attr('stroke', color);
+
+  // Warning ring for needs_review
+  node.filter(d => d.needs_review)
+    .append('circle')
+    .attr('r', d => nodeRadius(d) + 4)
+    .attr('fill', 'none')
+    .attr('stroke', '#d29922')
+    .attr('stroke-width', 1.5)
+    .attr('stroke-dasharray', '3 2');
+
+  node.append('text')
+    .attr('dy', d => nodeRadius(d) + 4)
+    .text(d => d.label.length > 22 ? d.label.slice(0, 20) + '…' : d.label);
+
+  // Re-apply selection highlight if a node was already selected
+  if (selectedLabel) applySelection();
+
+  simulation.on('tick', () => {
+    link
+      .attr('x1', d => edgePt(d.source, d.target, false).x)
+      .attr('y1', d => edgePt(d.source, d.target, false).y)
+      .attr('x2', d => edgePt(d.source, d.target, true).x)
+      .attr('y2', d => edgePt(d.source, d.target, true).y);
+
+    linkLabel
+      .attr('x', d => (d.source.x + d.target.x) / 2)
+      .attr('y', d => (d.source.y + d.target.y) / 2 - 4);
+
+    node.attr('transform', d => `translate(${d.x},${d.y})`);
+  });
+}
+
+// Compute line endpoint offset to the circle boundary
+function edgePt(src, tgt, isTarget) {
+  const dx = tgt.x - src.x;
+  const dy = tgt.y - src.y;
+  const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+  if (isTarget) {
+    const r = nodeRadius(tgt) + 7; // +7 for arrowhead
+    return { x: tgt.x - dx * r / dist, y: tgt.y - dy * r / dist };
+  } else {
+    const r = nodeRadius(src);
+    return { x: src.x + dx * r / dist, y: src.y + dy * r / dist };
+  }
+}
+
+function dragBehavior() {
+  return d3.drag()
+    .on('start', (event, d) => {
+      if (!event.active) simulation.alphaTarget(0.3).restart();
+      d.fx = d.x; d.fy = d.y;
+    })
+    .on('drag', (event, d) => { d.fx = event.x; d.fy = event.y; })
+    .on('end',  (event, d) => {
+      if (!event.active) simulation.alphaTarget(0);
+      d.fx = null; d.fy = null;
+    });
+}
+
+function applySelection() {
+  d3.selectAll('.node').classed('selected', d => d.label === selectedLabel);
+}
+
+// ── Node selection & detail panel ──────────────────────────────────────────
+function selectNode(label) {
+  selectedLabel = label;
+  applySelection();
+
+  const panel = document.getElementById('detail');
+  if (!label) { panel.classList.remove('open'); return; }
+
+  const node = ALL.nodes.find(n => n.label === label);
+  if (!node) return;
+
+  panel.classList.add('open');
+  renderDetail(node);
+}
+
+document.getElementById('detail-close').addEventListener('click', () => selectNode(null));
+
+function renderDetail(node) {
+  document.getElementById('detail-label').textContent = node.label;
+
+  const col = typeColor(node.type);
+  const confPct = Math.round((node.confidence || 0) * 100);
+  const justs = ALL.justifications.filter(j => j.node_label === node.label);
+  const outEdges = ALL.edges.filter(e => e.from === node.label);
+  const inEdges  = ALL.edges.filter(e => e.to   === node.label);
+
+  let html = '';
+
+  // Type + status
+  html += `<div class="d-row">
+    <div class="d-key">Type</div>
+    <div class="d-val" style="color:${col}">${node.type}</div>
+  </div>`;
+
+  html += `<div class="d-row">
+    <div class="d-key">Status</div>
+    <div class="d-val"><span class="badge ${node.status}">${node.status}</span>${node.needs_review ? ' <span style="color:#d29922;font-size:11px">needs review</span>' : ''}</div>
+  </div>`;
+
+  // Confidence
+  html += `<div class="d-row">
+    <div class="d-key">Confidence</div>
+    <div class="d-val">${confPct}%</div>
+    <div class="conf-bar"><div class="conf-fill" style="width:${confPct}%;background:${confPct > 60 ? '#3fb950' : confPct > 30 ? '#d29922' : '#f85149'}"></div></div>
+  </div>`;
+
+  // Content
+  if (node.content) {
+    html += `<div class="d-row">
+      <div class="d-key">Content</div>
+      <div class="content-box">${esc(node.content)}</div>
+    </div>`;
+  }
+
+  // Justifications (OR-of-ANDs)
+  if (justs.length > 0) {
+    html += `<div class="d-row"><div class="d-key">Justifications (OR of ANDs)</div>`;
+    justs.forEach(j => {
+      html += `<div class="just-group">
+        <div class="just-group-label">Group ${j.group_id} — all must be IN:</div>
+        <div class="just-chips">`;
+      j.justifiers.forEach(jl => {
+        const jn = ALL.nodes.find(n => n.label === jl);
+        const jc = jn ? typeColor(jn.type) : '#8b949e';
+        const jStatus = jn ? jn.status : '?';
+        html += `<span class="just-chip" style="border-color:${jc};color:${jc};background:${jc}18"
+          onclick="jumpTo('${jl}')">${jl} <span style="opacity:0.6">(${jStatus})</span></span>`;
+      });
+      html += `</div></div>`;
+    });
+    html += `</div>`;
+  }
+
+  // Outgoing edges
+  if (outEdges.length > 0) {
+    html += `<div class="d-row"><div class="d-key">Outgoing (${outEdges.length})</div><div class="edge-list">`;
+    outEdges.forEach(e => {
+      const tn = ALL.nodes.find(n => n.label === e.to);
+      const tc = tn ? typeColor(tn.type) : '#8b949e';
+      html += `<div class="edge-item">
+        <span class="edge-rel">-[${esc(e.relation)}]→</span>
+        <span class="edge-node" style="color:${tc}" onclick="jumpTo('${e.to}')">${esc(e.to)}</span>
+      </div>`;
+    });
+    html += `</div></div>`;
+  }
+
+  // Incoming edges
+  if (inEdges.length > 0) {
+    html += `<div class="d-row"><div class="d-key">Incoming (${inEdges.length})</div><div class="edge-list">`;
+    inEdges.forEach(e => {
+      const fn = ALL.nodes.find(n => n.label === e.from);
+      const fc = fn ? typeColor(fn.type) : '#8b949e';
+      html += `<div class="edge-item">
+        <span class="edge-node" style="color:${fc}" onclick="jumpTo('${e.from}')">${esc(e.from)}</span>
+        <span class="edge-rel">-[${esc(e.relation)}]→</span>
+      </div>`;
+    });
+    html += `</div></div>`;
+  }
+
+  // Timestamps
+  if (node.created_at) {
+    html += `<div class="d-row">
+      <div class="d-key">Created</div>
+      <div class="d-val" style="color:#484f58;font-size:11px">${esc(node.created_at)}</div>
+    </div>`;
+  }
+
+  document.getElementById('detail-body').innerHTML = html;
+}
+
+function jumpTo(label) {
+  // Ensure it's visible (reset search if needed)
+  const node = ALL.nodes.find(n => n.label === label);
+  if (!node) return;
+  if (!isVisible(node)) {
+    // Make sure its status and type are active
+    activeStatus.add(node.status);
+    activeTypes.add(node.type);
+    searchQuery = '';
+    document.getElementById('search').value = '';
+    // Update chip states
+    document.querySelectorAll('.chip').forEach(c => {
+      const group = c.dataset.group;
+      const val = c.dataset.val;
+      const set = group === 'status' ? activeStatus : activeTypes;
+      c.classList.toggle('off', !set.has(val));
+    });
+    render();
+  }
+  selectNode(label);
+}
+
+function esc(s) {
+  return String(s)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>

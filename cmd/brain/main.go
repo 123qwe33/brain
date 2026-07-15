@@ -205,6 +205,7 @@ func init() {
 	rootCmd.AddCommand(relationsCmd)
 	rootCmd.AddCommand(graphCmd)
 	rootCmd.AddCommand(logCmd)
+	rootCmd.AddCommand(serveCmd)
 }
 
 func getRMS() *rms.RMS {

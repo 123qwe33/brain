@@ -473,6 +473,134 @@ func (r *RMS) Graph(startLabel string, maxDepth int) (*GraphResult, error) {
 	}, nil
 }
 
+type FullNode struct {
+	Label       string  `json:"label"`
+	Type        string  `json:"type"`
+	Status      string  `json:"status"`
+	Content     string  `json:"content"`
+	Confidence  float64 `json:"confidence"`
+	NeedsReview bool    `json:"needs_review"`
+	CreatedAt   string  `json:"created_at,omitempty"`
+	AgentLabel  string  `json:"agent_label,omitempty"`
+}
+
+type JustGroup struct {
+	NodeLabel  string   `json:"node_label"`
+	GroupID    int      `json:"group_id"`
+	Justifiers []string `json:"justifiers"`
+}
+
+type AllDataResult struct {
+	Nodes          []FullNode  `json:"nodes"`
+	Edges          []GraphEdge `json:"edges"`
+	Justifications []JustGroup `json:"justifications"`
+}
+
+func (r *RMS) AllData() (*AllDataResult, error) {
+	rows, err := r.db.Query(`SELECT label, type, status,
+		COALESCE(content,''), COALESCE(confidence,1.0),
+		COALESCE(needs_review,0), COALESCE(created_at,''), COALESCE(agent_label,'')
+		FROM nodes ORDER BY label`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var nodes []FullNode
+	for rows.Next() {
+		var n FullNode
+		var needsReview int
+		if err := rows.Scan(&n.Label, &n.Type, &n.Status, &n.Content,
+			&n.Confidence, &needsReview, &n.CreatedAt, &n.AgentLabel); err != nil {
+			return nil, err
+		}
+		n.NeedsReview = needsReview == 1
+		nodes = append(nodes, n)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	edgeRows, err := r.db.Query(`SELECT n1.label, n2.label, e.relation
+		FROM edges e
+		JOIN nodes n1 ON n1.id = e.from_id
+		JOIN nodes n2 ON n2.id = e.to_id`)
+	if err != nil {
+		return nil, err
+	}
+	defer edgeRows.Close()
+
+	var edges []GraphEdge
+	for edgeRows.Next() {
+		var e GraphEdge
+		if err := edgeRows.Scan(&e.From, &e.To, &e.Relation); err != nil {
+			return nil, err
+		}
+		edges = append(edges, e)
+	}
+	if err := edgeRows.Err(); err != nil {
+		return nil, err
+	}
+
+	justRows, err := r.db.Query(`SELECT n.label, j.group_id, jn.label
+		FROM justifications j
+		JOIN nodes n ON n.id = j.node_id
+		JOIN nodes jn ON jn.id = j.justifier_id
+		ORDER BY n.label, j.group_id`)
+	if err != nil {
+		return nil, err
+	}
+	defer justRows.Close()
+
+	type groupKey struct {
+		nodeLabel string
+		groupID   int
+	}
+	groupMap := make(map[groupKey][]string)
+	var groupOrder []groupKey
+
+	for justRows.Next() {
+		var nodeLabel, justLabel string
+		var groupID int
+		if err := justRows.Scan(&nodeLabel, &groupID, &justLabel); err != nil {
+			return nil, err
+		}
+		k := groupKey{nodeLabel, groupID}
+		if _, exists := groupMap[k]; !exists {
+			groupOrder = append(groupOrder, k)
+		}
+		groupMap[k] = append(groupMap[k], justLabel)
+	}
+	if err := justRows.Err(); err != nil {
+		return nil, err
+	}
+
+	var justs []JustGroup
+	for _, k := range groupOrder {
+		justs = append(justs, JustGroup{
+			NodeLabel:  k.nodeLabel,
+			GroupID:    k.groupID,
+			Justifiers: groupMap[k],
+		})
+	}
+
+	result := &AllDataResult{
+		Nodes:          nodes,
+		Edges:          edges,
+		Justifications: justs,
+	}
+	if result.Nodes == nil {
+		result.Nodes = []FullNode{}
+	}
+	if result.Edges == nil {
+		result.Edges = []GraphEdge{}
+	}
+	if result.Justifications == nil {
+		result.Justifications = []JustGroup{}
+	}
+	return result, nil
+}
+
 func (r *RMS) Relations(label string, incoming bool) ([]Edge, error) {
 	var id int
 	if err := r.db.QueryRow("SELECT id FROM nodes WHERE label = ?", label).Scan(&id); err != nil {
