@@ -5,7 +5,17 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Brain Viewer</title>
 <style>
-* { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* ── Type colors — single source of truth ── */
+.type-project_fact { --type-color: #4A90D9; }
+.type-hypothesis   { --type-color: #E8A838; }
+.type-tool_schema  { --type-color: #5BAD6F; }
+.type-premise      { --type-color: #9B9B9B; }
+.type-decision     { --type-color: #B07FD4; }
+ /* unknown types fall back to the var() default below */
+
+
+ * { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
   font-family: system-ui, -apple-system, sans-serif;
@@ -93,6 +103,15 @@ body {
   border-radius: 50%;
   flex-shrink: 0;
 }
+.legend-dot.typed {
+  background: transparent;
+  border: 2px solid var(--type-color, #D45B5B);
+}
+.chip[data-group="type"] {
+  border-color: var(--type-color, #D45B5B);
+  color: var(--type-color, #D45B5B);
+}
+.type-label { color: var(--type-color, #c9d1d9); }
 .legend-hint {
   font-size: 10px;
   color: #484f58;
@@ -130,11 +149,12 @@ svg:active { cursor: grabbing; }
 
 .node { cursor: pointer; }
 .node circle {
+  stroke: var(--type-color, #D45B5B);
   stroke-width: 2;
   transition: filter 0.15s;
 }
-.node.out circle { opacity: 0.28; stroke-dasharray: 5 3; }
-.node.out text { opacity: 0.35; }
+.node.out circle { opacity: 0.6; stroke-dasharray: 5 3; }
+.node.out text { opacity: 0.5; }
 .node.selected circle { filter: drop-shadow(0 0 6px currentColor); stroke-width: 3; }
 
 .node text {
@@ -251,7 +271,9 @@ svg:active { cursor: grabbing; }
   border-radius: 10px;
   font-size: 11px;
   cursor: pointer;
-  border: 1px solid;
+  border: 1px solid var(--type-color, #8b949e);
+  color: var(--type-color, #8b949e);
+  background: #ffffff08;
   transition: opacity 0.15s;
 }
 .just-chip:hover { opacity: 0.75; }
@@ -259,7 +281,7 @@ svg:active { cursor: grabbing; }
 .edge-list { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
 .edge-item { font-size: 11px; display: flex; align-items: baseline; gap: 4px; }
 .edge-rel { color: #484f58; font-style: italic; }
-.edge-node { cursor: pointer; }
+.edge-node { color: var(--type-color, #c9d1d9); cursor: pointer; }
 .edge-node:hover { text-decoration: underline; }
 </style>
 </head>
@@ -288,7 +310,7 @@ svg:active { cursor: grabbing; }
   <div class="sidebar-section">
     <div class="section-label" style="margin-bottom:6px">Legend</div>
     <div id="legend"></div>
-    <div class="legend-hint" style="margin-top:8px">Node size = confidence<br>Dashed/dim = OUT status</div>
+    <div class="legend-hint" style="margin-top:8px">Fill = status &nbsp;·&nbsp; Border = type<br>Node size = confidence &nbsp;·&nbsp; Dashed = OUT</div>
   </div>
 </div>
 
@@ -307,20 +329,6 @@ svg:active { cursor: grabbing; }
 
 <script src="/d3.min.js"></script>
 <script>
-// ── Color map ──────────────────────────────────────────────────────────────
-const TYPE_COLORS = {
-  project_fact: '#4A90D9',
-  hypothesis:   '#E8A838',
-  tool_schema:  '#5BAD6F',
-  premise:      '#9B9B9B',
-  decision:     '#B07FD4',
-};
-const FALLBACK_COLOR = '#D45B5B';
-
-function typeColor(type) {
-  return TYPE_COLORS[type] || FALLBACK_COLOR;
-}
-
 function nodeRadius(d) {
   return 8 + (d.confidence || 0) * 9;
 }
@@ -358,22 +366,28 @@ function buildTypeChips(types) {
   const wrap = document.getElementById('type-chips');
   types.forEach(t => {
     const c = document.createElement('span');
-    c.className = 'chip';
+    c.className = `chip type-${t}`;
     c.dataset.group = 'type';
     c.dataset.val = t;
     c.textContent = t;
-    c.style.borderColor = typeColor(t);
-    c.style.color = typeColor(t);
     wrap.appendChild(c);
   });
 }
 
 function buildLegend(types) {
   const wrap = document.getElementById('legend');
+  wrap.innerHTML = `
+    <div class="legend-row">
+      <span class="legend-dot" style="background:#3fb950"></span>IN
+    </div>
+    <div class="legend-row">
+      <span class="legend-dot" style="background:#f85149"></span>OUT
+    </div>
+    <div style="height:6px;border-bottom:1px solid #21262d;margin-bottom:6px"></div>`;
   types.forEach(t => {
     wrap.innerHTML += `
       <div class="legend-row">
-        <span class="legend-dot" style="background:${typeColor(t)}"></span>
+        <span class="legend-dot typed type-${t}"></span>
         ${t}
       </div>`;
   });
@@ -503,19 +517,16 @@ function drawGraph(nodes, edges) {
   const node = nodeG.selectAll('g')
     .data(simNodes, d => d.label)
     .join('g')
-    .attr('class', d => `node ${d.status === 'OUT' ? 'out' : ''}`)
+    .attr('class', d => `node type-${d.type}${d.status === 'OUT' ? ' out' : ''}`)
     .call(dragBehavior())
     .on('click', (event, d) => {
       event.stopPropagation();
       selectNode(d.label);
     });
 
-  const color = d => typeColor(d.type);
-
   node.append('circle')
     .attr('r', nodeRadius)
-    .attr('fill', d => color(d) + '22')
-    .attr('stroke', color);
+    .attr('fill', d => d.status === 'IN' ? '#3fb950' : '#f85149');
 
   // Warning ring for needs_review
   node.filter(d => d.needs_review)
@@ -599,7 +610,6 @@ document.getElementById('detail-close').addEventListener('click', () => selectNo
 function renderDetail(node) {
   document.getElementById('detail-label').textContent = node.label;
 
-  const col = typeColor(node.type);
   const confPct = Math.round((node.confidence || 0) * 100);
   const justs = ALL.justifications.filter(j => j.node_label === node.label);
   const outEdges = ALL.edges.filter(e => e.from === node.label);
@@ -610,7 +620,7 @@ function renderDetail(node) {
   // Type + status
   html += `<div class="d-row">
     <div class="d-key">Type</div>
-    <div class="d-val" style="color:${col}">${node.type}</div>
+    <div class="d-val type-label type-${node.type}">${node.type}</div>
   </div>`;
 
   html += `<div class="d-row">
@@ -642,9 +652,8 @@ function renderDetail(node) {
         <div class="just-chips">`;
       j.justifiers.forEach(jl => {
         const jn = ALL.nodes.find(n => n.label === jl);
-        const jc = jn ? typeColor(jn.type) : '#8b949e';
         const jStatus = jn ? jn.status : '?';
-        html += `<span class="just-chip" style="border-color:${jc};color:${jc};background:${jc}18"
+        html += `<span class="just-chip type-${jn ? jn.type : ''}"
           onclick="jumpTo('${jl}')">${jl} <span style="opacity:0.6">(${jStatus})</span></span>`;
       });
       html += `</div></div>`;
@@ -657,10 +666,9 @@ function renderDetail(node) {
     html += `<div class="d-row"><div class="d-key">Outgoing (${outEdges.length})</div><div class="edge-list">`;
     outEdges.forEach(e => {
       const tn = ALL.nodes.find(n => n.label === e.to);
-      const tc = tn ? typeColor(tn.type) : '#8b949e';
       html += `<div class="edge-item">
         <span class="edge-rel">-[${esc(e.relation)}]→</span>
-        <span class="edge-node" style="color:${tc}" onclick="jumpTo('${e.to}')">${esc(e.to)}</span>
+        <span class="edge-node type-${tn ? tn.type : ''}" onclick="jumpTo('${e.to}')">${esc(e.to)}</span>
       </div>`;
     });
     html += `</div></div>`;
@@ -671,9 +679,8 @@ function renderDetail(node) {
     html += `<div class="d-row"><div class="d-key">Incoming (${inEdges.length})</div><div class="edge-list">`;
     inEdges.forEach(e => {
       const fn = ALL.nodes.find(n => n.label === e.from);
-      const fc = fn ? typeColor(fn.type) : '#8b949e';
       html += `<div class="edge-item">
-        <span class="edge-node" style="color:${fc}" onclick="jumpTo('${e.from}')">${esc(e.from)}</span>
+        <span class="edge-node type-${fn ? fn.type : ''}" onclick="jumpTo('${e.from}')">${esc(e.from)}</span>
         <span class="edge-rel">-[${esc(e.relation)}]→</span>
       </div>`;
     });
