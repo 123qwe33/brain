@@ -1,6 +1,7 @@
 * Tasks Up-Next
-** TODO Add brain-ask tool to simplify brain access via plain-text.
 
 * Tasks Backlog
 
 * Done
+** DONE Add brain-ask tool to simplify brain access via plain-text.
+CLOSED: [2026-07-16 Thu 22:01]
