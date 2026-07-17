@@ -1,4 +1,6 @@
 * Tasks Up-Next
+** TODO Add support for Venice.ai / OpenAI provider
+** TODO Add write capability a 'brain-remember` companion tool that lets the agent assert new nodes back into the db.
 
 * Tasks Backlog
 
