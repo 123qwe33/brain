@@ -1,6 +1,7 @@
 # Binaries
 /brain
 init
+brain-ask
 
 # Database
 *.db
