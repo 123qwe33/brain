@@ -82,5 +82,11 @@ func buildSystemPrompt(data *rms.AllDataResult) string {
 	for _, e := range data.Edges {
 		b.WriteString(fmt.Sprintf("%s -[%s]-> %s\n", e.From, e.Relation, e.To))
 	}
+	if len(data.Justifications) > 0 {
+		b.WriteString("\nJUSTIFICATIONS:\n")
+		for _, j := range data.Justifications {
+			b.WriteString(fmt.Sprintf("%s is supported by: [%s] (group %d)\n", j.NodeLabel, strings.Join(j.Justifiers, ", "), j.GroupID))
+		}
+	}
 	return b.String()
 }
