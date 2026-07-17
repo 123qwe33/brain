@@ -44,6 +44,8 @@ func run(cmd *cobra.Command, args []string) {
 	switch cfg.Provider {
 	case "anthropic":
 		agent = memoryagent.NewAnthropicAgent(cfg)
+	case "openai":
+		agent = memoryagent.NewOpenAIAgent(cfg)
 	default:
 		agent = memoryagent.NewDummyAgent(cfg)
 	}
