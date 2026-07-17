@@ -1,5 +1,4 @@
 * Tasks Up-Next
-** TODO Add write capability - a 'brain-remember` companion tool that lets the agent assert new nodes back into the db.
 
 * Tasks Backlog
 
@@ -8,3 +7,5 @@
 CLOSED: [2026-07-16 Thu 22:01]
 ** DONE Add support for Venice.ai / OpenAI provider
 CLOSED: [2026-07-17 Fri 12:29]
+** DONE Add write capability - a 'brain-remember` companion tool that lets the agent assert new nodes back into the db.
+CLOSED: [2026-07-17 Fri 13:17]
