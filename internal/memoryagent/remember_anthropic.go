@@ -79,6 +79,7 @@ func (a *AnthropicRememberAgent) Remember(statement string) (RememberResult, err
 		return RememberResult{}, fmt.Errorf("no text content in response")
 	}
 
+	raw = stripFences(raw)
 	var result RememberResult
 	if err := json.Unmarshal([]byte(raw), &result); err != nil {
 		return RememberResult{}, fmt.Errorf("parse response JSON: %w\nraw: %s", err, raw)

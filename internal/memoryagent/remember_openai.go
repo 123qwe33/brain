@@ -69,7 +69,7 @@ func (a *OpenAIRememberAgent) Remember(statement string) (RememberResult, error)
 		return RememberResult{}, fmt.Errorf("no choices in response")
 	}
 
-	raw := resp.Choices[0].Message.Content
+	raw := stripFences(resp.Choices[0].Message.Content)
 	var result RememberResult
 	if err := json.Unmarshal([]byte(raw), &result); err != nil {
 		return RememberResult{}, fmt.Errorf("parse response JSON: %w\nraw: %s", err, raw)

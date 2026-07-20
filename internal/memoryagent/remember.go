@@ -57,6 +57,19 @@ If nothing meaningful should be stored, return: {"nodes": [], "links": []}`)
 	return b.String()
 }
 
+// stripFences removes markdown code fences (e.g. ```json ... ```) that some
+// models add around JSON output despite being instructed not to.
+func stripFences(s string) string {
+	s = strings.TrimSpace(s)
+	if strings.HasPrefix(s, "```") {
+		s = s[strings.Index(s, "\n")+1:]
+	}
+	if strings.HasSuffix(s, "```") {
+		s = s[:strings.LastIndex(s, "```")]
+	}
+	return strings.TrimSpace(s)
+}
+
 func validateResult(result RememberResult, existingLabels map[string]bool) error {
 	// Build a set of all labels: existing + new nodes being asserted
 	allLabels := make(map[string]bool, len(existingLabels)+len(result.Nodes))
