@@ -43,11 +43,12 @@ func run(cmd *cobra.Command, args []string) {
 	var agent memoryagent.MemoryAgent
 	switch cfg.Provider {
 	case "anthropic":
-		agent = memoryagent.NewAnthropicAgent(cfg)
+		agent = memoryagent.NewAnthropicAskAgent(cfg)
 	case "openai":
-		agent = memoryagent.NewOpenAIAgent(cfg)
+		agent = memoryagent.NewOpenAIAskAgent(cfg)
 	default:
-		agent = memoryagent.NewDummyAgent(cfg)
+		fmt.Fprintf(os.Stderr, "Error: unknown provider %q (use anthropic or openai)\n", cfg.Provider)
+		os.Exit(1)
 	}
 	answer, err := agent.Ask(args[0])
 	if err != nil {
