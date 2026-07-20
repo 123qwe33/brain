@@ -1,9 +1,9 @@
 * Tasks Up-Next
-** 
+** Ensure brain-remember can create a DB if one doesn't exist.
 
 * Tasks Backlog
-** TODO Refine brain retrieval to be more nuanced - keyword search? Vector DB? Not sure.
-** TODO Refine brain storage to be more nuanced.
+** TODO Refine brain-ask to be more nuanced - keyword search? Vector DB? Not sure.
+** TODO Refine brain-remember to be more nuanced.
 
 * Done
 ** DONE Add brain-ask tool to simplify brain access via plain-text.
