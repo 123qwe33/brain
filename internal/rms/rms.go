@@ -601,6 +601,31 @@ func (r *RMS) AllData() (*AllDataResult, error) {
 	return result, nil
 }
 
+func (r *RMS) Unlink(from, to, relation string) error {
+	var fromID, toID int
+	if err := r.db.QueryRow("SELECT id FROM nodes WHERE label = ?", from).Scan(&fromID); err != nil {
+		return fmt.Errorf("node %s not found: %v", from, err)
+	}
+	if err := r.db.QueryRow("SELECT id FROM nodes WHERE label = ?", to).Scan(&toID); err != nil {
+		return fmt.Errorf("node %s not found: %v", to, err)
+	}
+
+	var existing int
+	err := r.db.QueryRow("SELECT id FROM edges WHERE from_id = ? AND to_id = ? AND relation = ?", fromID, toID, relation).Scan(&existing)
+	if err == sql.ErrNoRows {
+		return fmt.Errorf("edge %s -[%s]-> %s not found", from, relation, to)
+	}
+	if err != nil {
+		return err
+	}
+
+	_, err = r.db.Exec("DELETE FROM edges WHERE from_id = ? AND to_id = ? AND relation = ?", fromID, toID, relation)
+	if err == nil {
+		r.appendEvent("unlinked", from, "", "", "", 0, 0, fmt.Sprintf("%s -[%s]-> %s", from, relation, to))
+	}
+	return err
+}
+
 func (r *RMS) Relations(label string, incoming bool) ([]Edge, error) {
 	var id int
 	if err := r.db.QueryRow("SELECT id FROM nodes WHERE label = ?", label).Scan(&id); err != nil {

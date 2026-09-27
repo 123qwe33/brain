@@ -117,6 +117,19 @@ var (
 		},
 	}
 
+	unlinkCmd = &cobra.Command{
+		Use:   "unlink [from] [to] [relation]",
+		Short: "Removes a directed edge between two nodes",
+		Args:  cobra.ExactArgs(3),
+		Run: func(cmd *cobra.Command, args []string) {
+			r := getRMS()
+			if err := r.Unlink(args[0], args[1], args[2]); err != nil {
+				fmt.Fprintf(os.Stderr, "Error unlinking nodes: %v\n", err)
+				os.Exit(1)
+			}
+		},
+	}
+
 	relationsCmd = &cobra.Command{
 		Use:   "relations [label]",
 		Short: "Lists edges for a node (outgoing by default, incoming with --in)",
@@ -202,6 +215,7 @@ func init() {
 	rootCmd.AddCommand(queryCmd)
 	rootCmd.AddCommand(invalidateCmd)
 	rootCmd.AddCommand(linkCmd)
+	rootCmd.AddCommand(unlinkCmd)
 	rootCmd.AddCommand(relationsCmd)
 	rootCmd.AddCommand(graphCmd)
 	rootCmd.AddCommand(logCmd)
