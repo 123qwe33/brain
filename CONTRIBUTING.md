@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- Go 1.24+
+- Go 1.22+
 - GCC (required for cgo — `go-sqlite3` uses cgo)
 
 ## Build
