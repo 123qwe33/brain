@@ -626,6 +626,78 @@ func (r *RMS) Unlink(from, to, relation string) error {
 	return err
 }
 
+func (r *RMS) Delete(label string) error {
+	var id int
+	if err := r.db.QueryRow("SELECT id FROM nodes WHERE label = ?", label).Scan(&id); err != nil {
+		return fmt.Errorf("node %s not found: %v", label, err)
+	}
+
+	// Cascade OUT to dependents before hard delete
+	if err := r.Invalidate(label); err != nil {
+		return err
+	}
+
+	// Find all justification groups that contain this node as a justifier,
+	// then delete those entire groups so no partial group survives.
+	rows, err := r.db.Query("SELECT DISTINCT node_id, group_id FROM justifications WHERE justifier_id = ?", id)
+	if err != nil {
+		return err
+	}
+	type groupRef struct{ nodeID, groupID int }
+	var groups []groupRef
+	for rows.Next() {
+		var g groupRef
+		if err := rows.Scan(&g.nodeID, &g.groupID); err != nil {
+			rows.Close()
+			return err
+		}
+		groups = append(groups, g)
+	}
+	rows.Close()
+
+	for _, g := range groups {
+		if _, err := r.db.Exec("DELETE FROM justifications WHERE node_id = ? AND group_id = ?", g.nodeID, g.groupID); err != nil {
+			return err
+		}
+	}
+
+	if _, err := r.db.Exec("DELETE FROM justifications WHERE node_id = ?", id); err != nil {
+		return err
+	}
+	if _, err := r.db.Exec("DELETE FROM edges WHERE from_id = ? OR to_id = ?", id, id); err != nil {
+		return err
+	}
+	if _, err := r.db.Exec("DELETE FROM nodes WHERE id = ?", id); err != nil {
+		return err
+	}
+
+	r.appendEvent("node_deleted", label, "", "OUT", "", 0, 0, "hard delete")
+	return nil
+}
+
+func (r *RMS) Rename(oldLabel, newLabel string) error {
+	var id int
+	if err := r.db.QueryRow("SELECT id FROM nodes WHERE label = ?", oldLabel).Scan(&id); err != nil {
+		return fmt.Errorf("node %s not found: %v", oldLabel, err)
+	}
+
+	var existingID int
+	err := r.db.QueryRow("SELECT id FROM nodes WHERE label = ?", newLabel).Scan(&existingID)
+	if err == nil {
+		return fmt.Errorf("node %s already exists", newLabel)
+	}
+	if err != sql.ErrNoRows {
+		return err
+	}
+
+	if _, err := r.db.Exec("UPDATE nodes SET label = ? WHERE id = ?", newLabel, id); err != nil {
+		return err
+	}
+
+	r.appendEvent("node_renamed", newLabel, "", "", "", 0, 0, fmt.Sprintf("%s -> %s", oldLabel, newLabel))
+	return nil
+}
+
 func (r *RMS) Relations(label string, incoming bool) ([]Edge, error) {
 	var id int
 	if err := r.db.QueryRow("SELECT id FROM nodes WHERE label = ?", label).Scan(&id); err != nil {

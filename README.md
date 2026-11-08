@@ -46,6 +46,8 @@ go build -o brain ./cmd/brain
 | `brain relations <label> --in` | Show incoming edges |
 | `brain justify <node> <dep> [dep...]` | Add a justification group |
 | `brain invalidate <label>` | Mark node OUT; cascades to dependents |
+| `brain delete <label>` | Hard-delete a node and all its edges and justifications |
+| `brain rename <old-label> <new-label>` | Rename a node label; all edges and justifications are preserved |
 | `brain graph <label>` | BFS neighborhood as JSON |
 | `brain log` | Recent event history |
 | `brain serve` | Launch local D3.js graph viewer |

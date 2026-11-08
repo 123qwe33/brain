@@ -171,6 +171,32 @@ var (
 		},
 	}
 
+	deleteCmd = &cobra.Command{
+		Use:   "delete [label]",
+		Short: "Hard-deletes a node and all its edges and justifications",
+		Args:  cobra.ExactArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			r := getRMS()
+			if err := r.Delete(args[0]); err != nil {
+				fmt.Fprintf(os.Stderr, "Error deleting node: %v\n", err)
+				os.Exit(1)
+			}
+		},
+	}
+
+	renameCmd = &cobra.Command{
+		Use:   "rename [old-label] [new-label]",
+		Short: "Renames a node label, preserving all edges and justifications",
+		Args:  cobra.ExactArgs(2),
+		Run: func(cmd *cobra.Command, args []string) {
+			r := getRMS()
+			if err := r.Rename(args[0], args[1]); err != nil {
+				fmt.Fprintf(os.Stderr, "Error renaming node: %v\n", err)
+				os.Exit(1)
+			}
+		},
+	}
+
 	logCmd = &cobra.Command{
 		Use:   "log",
 		Short: "Shows recent event log entries",
@@ -219,6 +245,8 @@ func init() {
 	rootCmd.AddCommand(relationsCmd)
 	rootCmd.AddCommand(graphCmd)
 	rootCmd.AddCommand(logCmd)
+	rootCmd.AddCommand(deleteCmd)
+	rootCmd.AddCommand(renameCmd)
 	rootCmd.AddCommand(serveCmd)
 }
 

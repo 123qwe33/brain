@@ -157,7 +157,36 @@ This is how the brain can say, “That assumption is no longer valid.”
 
 ---
 
-8. `brain log`
+8. `brain delete`
+Use this to permanently remove a node from the graph.
+
+Example:
+  ┌──────────────────────────────────────────────────────────── bash
+  │ brain delete comp_wrapper
+  └────────────────────────────────────────────────────────────
+
+This hard-deletes the node and all its edges and justifications.
+Any nodes that depended on it via justifications will cascade OUT first.
+
+The difference from invalidate: invalidate marks something OUT but keeps
+it in the graph (it can be re-asserted). Delete removes it entirely.
+
+---
+
+9. `brain rename`
+Use this to rename a node label.
+
+Example:
+  ┌──────────────────────────────────────────────────────────── bash
+  │ brain rename comp_old_name comp_new_name
+  └────────────────────────────────────────────────────────────
+
+All edges and justifications that reference the node are preserved —
+they use internal IDs, not labels, so the rename just updates the label.
+
+---
+
+10. `brain log`
 Use this to see what happened recently.
 
 Example:
@@ -184,6 +213,8 @@ A very simple way to think about it:
 - query = “what do we know right now?”
 - graph = “show me the local neighborhood”
 - invalidate = “that fact broke”
+- delete = “remove this entirely”
+- rename = “this thing has a new name”
 - log = “show me the trail of changes”
 
 ---
