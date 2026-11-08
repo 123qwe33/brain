@@ -52,6 +52,8 @@ go build -o brain ./cmd/brain
 | `brain log` | Recent event history |
 | `brain serve` | Launch local D3.js graph viewer |
 
+> **Event log and renames:** `brain log --node <label>` matches the label as recorded at event time. If a node has been renamed, historical events remain stored under the old label — query by the old label to see pre-rename history.
+
 ### Quick example
 
 ```bash
