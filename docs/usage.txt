@@ -46,6 +46,22 @@ Meaning:
 
 If the label already exists, it updates it.
 
+You can optionally seed a confidence score (0.0–1.0) at assert time:
+
+  ┌──────────────────────────────────────────────────────────── bash
+  │ brain assert hyp_docker hypothesis "Docker is probably the right path" --confidence 0.6
+  └────────────────────────────────────────────────────────────
+
+Rules:
+- New node, no --confidence flag → confidence = 1.0
+- New node, --confidence 0.6    → confidence = 0.6
+- Existing node, no flag        → confidence unchanged (preserved)
+- Existing node, --confidence X → confidence updated to X
+
+This matters most for bedrock nodes (no justifiers) where you want to express
+uncertainty. For justified nodes, Reevaluate() will immediately compute
+confidence from the justifier chain anyway.
+
 ---
 
 2. `brain link`

@@ -91,7 +91,7 @@ func (a *AnthropicRememberAgent) Remember(statement string) (RememberResult, err
 
 	r := rms.New(database)
 	for _, n := range result.Nodes {
-		if err := r.Assert(n.Label, n.Type, n.Content); err != nil {
+		if err := r.Assert(n.Label, n.Type, n.Content, nil); err != nil {
 			return RememberResult{}, fmt.Errorf("assert %s: %w", n.Label, err)
 		}
 	}

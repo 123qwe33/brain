@@ -12,13 +12,14 @@ import (
 )
 
 var (
-	queryTypeFlag   string
-	relationsInFlag bool
-	graphDepthFlag  int
-	logNodeFlag     string
-	logTypeFlag     string
-	logLimitFlag    int
-	searchAllFlag   bool
+	queryTypeFlag    string
+	relationsInFlag  bool
+	graphDepthFlag   int
+	logNodeFlag      string
+	logTypeFlag      string
+	logLimitFlag     int
+	searchAllFlag    bool
+	assertConfidence float64
 
 	rootCmd = &cobra.Command{
 		Use:   "brain",
@@ -31,7 +32,11 @@ var (
 		Args:  cobra.ExactArgs(3),
 		Run: func(cmd *cobra.Command, args []string) {
 			r := getRMS()
-			if err := r.Assert(args[0], args[1], args[2]); err != nil {
+			var conf *float64
+			if cmd.Flags().Changed("confidence") {
+				conf = &assertConfidence
+			}
+			if err := r.Assert(args[0], args[1], args[2], conf); err != nil {
 				log.Fatalf("Error asserting node: %v", err)
 			}
 		},
@@ -300,6 +305,7 @@ and needs_review is set to 1. Exits 0 on a clean merge, 1 when conflicts remain.
 )
 
 func init() {
+	assertCmd.Flags().Float64Var(&assertConfidence, "confidence", 1.0, "Confidence score 0.0–1.0 (default 1.0 for new nodes, preserved for existing)")
 	queryCmd.Flags().StringVarP(&queryTypeFlag, "type", "t", "", "Filter by node type")
 	relationsCmd.Flags().BoolVar(&relationsInFlag, "in", false, "Show incoming edges instead of outgoing")
 	graphCmd.Flags().IntVarP(&graphDepthFlag, "depth", "d", 1, "BFS traversal depth")

@@ -36,7 +36,7 @@ go build -o brain ./cmd/brain
 
 | Command | Description |
 |---|---|
-| `brain assert <label> <type> "<content>"` | Create or update a node |
+| `brain assert <label> <type> "<content>" [--confidence 0.0–1.0]` | Create or update a node |
 | `brain query` | List all IN nodes |
 | `brain query <label>` | Get a node's content |
 | `brain query --type <type>` | Filter IN nodes by type |
@@ -75,6 +75,19 @@ brain query proj_myapp
 brain invalidate dec_postgres
 brain query  # dec_postgres is now OUT
 ```
+
+### Confidence
+
+Every node carries a confidence score (0.0–1.0). Bedrock nodes default to 1.0; use `--confidence` to seed a lower value at assertion time:
+
+```bash
+brain assert hyp_x hypothesis "probably true" --confidence 0.6
+brain assert fact_a fact "some fact"              # confidence = 1.0
+brain assert fact_a fact "revised content"        # confidence preserved (still 1.0)
+brain assert fact_a fact "revised content" --confidence 0.8  # confidence updated to 0.8
+```
+
+For justified nodes, confidence is computed automatically by `Reevaluate`: it takes the minimum confidence across each AND-group's justifiers, multiplies by 0.95, and picks the best group. This propagates through the graph whenever a node is asserted, justified, or invalidated — you don't need to update it manually.
 
 ### Justification logic
 

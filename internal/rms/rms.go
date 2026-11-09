@@ -23,27 +23,45 @@ func (r *RMS) appendEvent(eventType, nodeLabel, agentLabel, oldStatus, newStatus
 	)
 }
 
-func (r *RMS) Assert(label, nodeType, content string) error {
+func (r *RMS) Assert(label, nodeType, content string, confidence *float64) error {
+	if confidence != nil && (*confidence < 0.0 || *confidence > 1.0) {
+		return fmt.Errorf("confidence must be between 0.0 and 1.0")
+	}
+
 	var id int
 	err := r.db.QueryRow("SELECT id FROM nodes WHERE label = ?", label).Scan(&id)
 	if err == sql.ErrNoRows {
+		resolvedConf := 1.0
+		if confidence != nil {
+			resolvedConf = *confidence
+		}
 		now := time.Now().UTC().Format(time.RFC3339)
-		res, err := r.db.Exec("INSERT INTO nodes (label, type, content, status, confidence, created_at) VALUES (?, ?, ?, 'IN', 1.0, ?)", label, nodeType, content, now)
+		res, err := r.db.Exec("INSERT INTO nodes (label, type, content, status, confidence, created_at) VALUES (?, ?, ?, 'IN', ?, ?)", label, nodeType, content, resolvedConf, now)
 		if err != nil {
 			return err
 		}
 		newID, _ := res.LastInsertId()
-		r.appendEvent("node_asserted", label, "", "", "IN", 0, 1.0, "")
+		r.appendEvent("node_asserted", label, "", "", "IN", 0, resolvedConf, "")
 		return r.recomputeConfidence(int(newID))
 	} else if err != nil {
 		return err
 	}
 
-	_, err = r.db.Exec("UPDATE nodes SET type = ?, content = ? WHERE id = ?", nodeType, content, id)
-	if err != nil {
-		return err
+	if confidence != nil {
+		var oldConf float64
+		_ = r.db.QueryRow("SELECT COALESCE(confidence, 1.0) FROM nodes WHERE id = ?", id).Scan(&oldConf)
+		_, err = r.db.Exec("UPDATE nodes SET type = ?, content = ?, confidence = ? WHERE id = ?", nodeType, content, *confidence, id)
+		if err != nil {
+			return err
+		}
+		r.appendEvent("node_updated", label, "", "", "", oldConf, *confidence, "content and confidence updated")
+	} else {
+		_, err = r.db.Exec("UPDATE nodes SET type = ?, content = ? WHERE id = ?", nodeType, content, id)
+		if err != nil {
+			return err
+		}
+		r.appendEvent("node_updated", label, "", "", "", 0, 0, "content updated")
 	}
-	r.appendEvent("node_updated", label, "", "", "", 0, 0, "content updated")
 	return r.Reevaluate(id)
 }
 
