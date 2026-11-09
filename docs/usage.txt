@@ -227,6 +227,48 @@ when you want to find nodes related to a topic before you know their labels.
 
 ---
 
+12. `brain serve`
+Use this to open a visual graph viewer in your browser.
+
+Example:
+  ┌──────────────────────────────────────────────────────────── bash
+  │ brain serve
+  └────────────────────────────────────────────────────────────
+
+This starts a local web server at http://localhost:8080.
+Open that URL in your browser to see the whole graph as an interactive diagram.
+
+You can also pick a different port:
+  ┌──────────────────────────────────────────────────────────── bash
+  │ brain serve --port 9090
+  └────────────────────────────────────────────────────────────
+
+What you see:
+- A force-directed graph where every node is a circle.
+- Green circles are IN (true). Red circles are OUT (invalidated).
+- Larger circles have higher confidence. Dashed circles are OUT.
+- Border colour tells you the node type (project, fact, decision, etc.).
+- Click any node to open a detail panel showing its content,
+  justification groups, and connected nodes.
+- The left sidebar lets you search by label or content, and filter
+  by IN/OUT status or node type.
+
+When to use this vs. brain query:
+- Use brain query and brain relations for quick lookups during normal work.
+  Those are fast and stay in your terminal.
+- Use brain serve when you want to understand the shape of the whole graph —
+  who depends on what, which nodes are clustered together, or what went OUT
+  after an invalidation cascade.
+
+Note on remote servers: the viewer only listens on localhost.
+If the brain is on a remote machine, forward the port first:
+  ┌──────────────────────────────────────────────────────────── bash
+  │ ssh -L 8080:localhost:8080 hal
+  └────────────────────────────────────────────────────────────
+Then open http://localhost:8080 on your local machine.
+
+---
+
 The mental model
 
 A very simple way to think about it:
@@ -241,6 +283,7 @@ A very simple way to think about it:
 - delete = “remove this entirely”
 - rename = “this thing has a new name”
 - log = “show me the trail of changes”
+- serve = “show me the whole graph visually”
 
 ---
 

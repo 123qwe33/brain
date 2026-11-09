@@ -88,6 +88,50 @@ brain justify A B C   # A is IN only while both B and C are IN
 brain invalidate B    # A cascades OUT
 ```
 
+## Web viewer
+
+`brain serve` starts a local HTTP server with a D3.js force-directed graph viewer.
+
+```bash
+brain serve           # http://localhost:8080
+brain serve --port 9090
+```
+
+On a remote server (such as HAL), the viewer binds to `localhost` only. Open it from your workstation with an SSH tunnel:
+
+```bash
+ssh -L 8080:localhost:8080 hal
+```
+
+Then visit [http://localhost:8080](http://localhost:8080) in your browser.
+
+### What the viewer shows
+
+The left sidebar has a text search (matches label and content), IN/OUT status filter chips, and type filter chips that are built dynamically from the data. The main area is a pannable, zoomable, draggable force graph. Clicking a node opens a detail panel on the right showing type, status, confidence, content, justification groups (with clickable justifier chips), and in/out edges.
+
+### Visual encoding
+
+| Property | Meaning |
+|---|---|
+| Fill colour | Green = IN · Red = OUT |
+| Border colour | Node type (see table below) |
+| Node size | Confidence — larger = higher confidence |
+| Dashed border | Node is OUT |
+| Yellow dashed ring | Node has `needs_review` flag set |
+
+### Type colours
+
+| Type | Colour |
+|---|---|
+| `project` | Blue |
+| `component` | Teal |
+| `interface` | Light blue |
+| `decision` | Purple |
+| `fact` | Green |
+| `hypothesis` | Amber |
+| `task` | Orange |
+| `system` | Grey |
+
 ## Label conventions
 
 | Prefix | Meaning |
