@@ -56,7 +56,7 @@ brain invalidate <old_label>              # stale fact
 Checkpoint WAL before committing `brain.db`:
 
 ```bash
-python3 -c "import sqlite3; c=sqlite3.connect('brain.db'); c.execute('PRAGMA wal_checkpoint(TRUNCATE)'); c.commit(); c.close()"
+brain checkpoint
 ```
 
 ## Testing

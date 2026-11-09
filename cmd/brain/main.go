@@ -284,6 +284,19 @@ and needs_review is set to 1. Exits 0 on a clean merge, 1 when conflicts remain.
 			}
 		},
 	}
+
+	checkpointCmd = &cobra.Command{
+		Use:   "checkpoint",
+		Short: "Flush the WAL to the main database file before committing",
+		Args:  cobra.NoArgs,
+		Run: func(cmd *cobra.Command, args []string) {
+			r := getRMS()
+			if err := r.Checkpoint(); err != nil {
+				log.Fatalf("checkpoint failed: %v", err)
+			}
+			fmt.Println("checkpoint complete")
+		},
+	}
 )
 
 func init() {
@@ -309,6 +322,7 @@ func init() {
 	rootCmd.AddCommand(serveCmd)
 	rootCmd.AddCommand(mergeCmd)
 	rootCmd.AddCommand(searchCmd)
+	rootCmd.AddCommand(checkpointCmd)
 }
 
 func getRMS() *rms.RMS {

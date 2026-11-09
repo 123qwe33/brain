@@ -52,6 +52,7 @@ go build -o brain ./cmd/brain
 | `brain graph <label>` | BFS neighborhood as JSON |
 | `brain log` | Recent event history |
 | `brain serve` | Launch local D3.js graph viewer |
+| `brain checkpoint` | Flush WAL to main DB file before committing brain.db |
 
 > **Event log and renames:** `brain log --node <label>` matches the label as recorded at event time. If a node has been renamed, historical events remain stored under the old label — query by the old label to see pre-rename history.
 
@@ -150,7 +151,7 @@ The left sidebar has a text search (matches label and content), IN/OUT status fi
 `brain.db` is designed to be committed alongside code — the graph serves as living documentation. Before committing, checkpoint the WAL to ensure the file is self-contained:
 
 ```bash
-python3 -c "import sqlite3; c=sqlite3.connect('brain.db'); c.execute('PRAGMA wal_checkpoint(TRUNCATE)'); c.commit(); c.close()"
+brain checkpoint
 ```
 
 Keep `.db-wal` and `.db-shm` in `.gitignore`.

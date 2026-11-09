@@ -761,3 +761,8 @@ func (r *RMS) Relations(label string, incoming bool) ([]Edge, error) {
 	}
 	return edges, nil
 }
+
+func (r *RMS) Checkpoint() error {
+	_, err := r.db.Exec("PRAGMA wal_checkpoint(TRUNCATE)")
+	return err
+}
