@@ -698,6 +698,41 @@ func (r *RMS) Rename(oldLabel, newLabel string) error {
 	return nil
 }
 
+type SearchResult struct {
+	Label   string
+	Type    string
+	Status  string
+	Content string
+}
+
+func (r *RMS) Search(text string, includeOut bool) ([]SearchResult, error) {
+	pattern := "%" + text + "%"
+	query := `SELECT label, type, status, COALESCE(content,'')
+		FROM nodes
+		WHERE (content LIKE ? OR label LIKE ?)`
+	args := []any{pattern, pattern}
+	if !includeOut {
+		query += " AND status = 'IN'"
+	}
+	query += " ORDER BY label"
+
+	rows, err := r.db.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []SearchResult
+	for rows.Next() {
+		var s SearchResult
+		if err := rows.Scan(&s.Label, &s.Type, &s.Status, &s.Content); err != nil {
+			return nil, err
+		}
+		results = append(results, s)
+	}
+	return results, rows.Err()
+}
+
 func (r *RMS) Relations(label string, incoming bool) ([]Edge, error) {
 	var id int
 	if err := r.db.QueryRow("SELECT id FROM nodes WHERE label = ?", label).Scan(&id); err != nil {

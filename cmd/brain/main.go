@@ -18,6 +18,7 @@ var (
 	logNodeFlag     string
 	logTypeFlag     string
 	logLimitFlag    int
+	searchAllFlag   bool
 
 	rootCmd = &cobra.Command{
 		Use:   "brain",
@@ -226,6 +227,63 @@ var (
 			}
 		},
 	}
+
+	mergeCmd = &cobra.Command{
+		Use:   "merge [base] [ours] [theirs]",
+		Short: "3-way merge driver for brain.db git conflicts",
+		Long: `Merges three brain.db files by node label rather than row ID. Intended
+to be called automatically by git when brain.db merge=brain is set in
+.gitattributes.
+
+Register the driver (once per machine):
+  git config --global merge.brain.driver "brain merge %O %A %B"
+
+Add to .gitattributes (once per repo):
+  brain.db merge=brain
+
+On conflict the node content is annotated with <<<<<<</ours/theirs markers
+and needs_review is set to 1. Exits 0 on a clean merge, 1 when conflicts remain.`,
+		Args: cobra.ExactArgs(3),
+		Run: func(cmd *cobra.Command, args []string) {
+			conflicts, err := rms.Merge(args[0], args[1], args[2])
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "brain merge error: %v\n", err)
+				os.Exit(1)
+			}
+			if len(conflicts) > 0 {
+				fmt.Fprintf(os.Stderr, "CONFLICT: %d node(s) have conflicting content:\n", len(conflicts))
+				for _, c := range conflicts {
+					fmt.Fprintf(os.Stderr, "  %s\n", c.Label)
+				}
+				os.Exit(1)
+			}
+		},
+	}
+
+	searchCmd = &cobra.Command{
+		Use:   "search <text>",
+		Short: "Search node labels and content",
+		Args:  cobra.ExactArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			r := getRMS()
+			results, err := r.Search(args[0], searchAllFlag)
+			if err != nil {
+				log.Fatalf("Error searching: %v", err)
+			}
+			for _, res := range results {
+				runes := []rune(res.Content)
+				excerpt := res.Content
+				if len(runes) > 80 {
+					excerpt = string(runes[:80]) + "..."
+				}
+				if searchAllFlag {
+					fmt.Printf("%s\t[%s]\t%s\t%s\n", res.Label, res.Type, res.Status, excerpt)
+				} else {
+					fmt.Printf("%s\t[%s]\t%s\n", res.Label, res.Type, excerpt)
+				}
+			}
+		},
+	}
 )
 
 func init() {
@@ -235,6 +293,7 @@ func init() {
 	logCmd.Flags().StringVar(&logNodeFlag, "node", "", "Filter by node label")
 	logCmd.Flags().StringVar(&logTypeFlag, "type", "", "Filter by event type")
 	logCmd.Flags().IntVar(&logLimitFlag, "limit", 20, "Limit number of events shown")
+	searchCmd.Flags().BoolVar(&searchAllFlag, "all", false, "Include OUT nodes in results")
 
 	rootCmd.AddCommand(assertCmd)
 	rootCmd.AddCommand(justifyCmd)
@@ -248,6 +307,8 @@ func init() {
 	rootCmd.AddCommand(deleteCmd)
 	rootCmd.AddCommand(renameCmd)
 	rootCmd.AddCommand(serveCmd)
+	rootCmd.AddCommand(mergeCmd)
+	rootCmd.AddCommand(searchCmd)
 }
 
 func getRMS() *rms.RMS {

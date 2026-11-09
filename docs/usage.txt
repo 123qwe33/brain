@@ -203,6 +203,30 @@ This is your event history.
 
 ---
 
+11. `brain search`
+Use this to find nodes when you don't know the exact label.
+
+Example:
+  ┌──────────────────────────────────────────────────────────── bash
+  │ brain search "docker"
+  └────────────────────────────────────────────────────────────
+
+Returns all IN nodes whose label or content contains the text, one per line:
+  label   [type]   content excerpt (up to ~80 chars)
+
+To include OUT (invalidated) nodes as well:
+  ┌──────────────────────────────────────────────────────────── bash
+  │ brain search "docker" --all
+  └────────────────────────────────────────────────────────────
+
+In --all mode a status column is added:
+  label   [type]   IN/OUT   content excerpt
+
+The match is case-insensitive for ASCII. Use this during orientation
+when you want to find nodes related to a topic before you know their labels.
+
+---
+
 The mental model
 
 A very simple way to think about it:
@@ -211,6 +235,7 @@ A very simple way to think about it:
 - link = “this thing relates to that thing”
 - justify = “this thing depends on those things”
 - query = “what do we know right now?”
+- search = “find nodes related to this topic”
 - graph = “show me the local neighborhood”
 - invalidate = “that fact broke”
 - delete = “remove this entirely”
@@ -244,6 +269,7 @@ Step 1: Learn the project
 Ask the brain:
   ┌──────────────────────────────────────────────────────────── bash
   │ brain query
+  │ brain search "keyword"
   │ brain graph proj_weft --depth 2
   │ brain relations proj_weft
   └────────────────────────────────────────────────────────────
