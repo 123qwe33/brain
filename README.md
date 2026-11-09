@@ -48,6 +48,7 @@ go build -o brain ./cmd/brain
 | `brain invalidate <label>` | Mark node OUT; cascades to dependents |
 | `brain delete <label>` | Hard-delete a node and all its edges and justifications |
 | `brain rename <old-label> <new-label>` | Rename a node label; all edges and justifications are preserved |
+| `brain search "<text>"` | Search node labels and content (IN nodes; `--all` includes OUT) |
 | `brain graph <label>` | BFS neighborhood as JSON |
 | `brain log` | Recent event history |
 | `brain serve` | Launch local D3.js graph viewer |
@@ -109,6 +110,41 @@ python3 -c "import sqlite3; c=sqlite3.connect('brain.db'); c.execute('PRAGMA wal
 ```
 
 Keep `.db-wal` and `.db-shm` in `.gitignore`.
+
+## Git merge driver
+
+`brain.db` is designed to be committed alongside code. When both branches modify it, git's default binary-conflict handling would clobber one side. The `brain merge` driver performs a semantic 3-way merge instead — matching nodes by label (not row ID) and unioning edges, justifications, and event history.
+
+**Setup (once per machine):**
+
+```bash
+git config --global merge.brain.driver "brain merge %O %A %B"
+```
+
+**Setup (once per repo)** — already included in this repo's `.gitattributes`, but add it to any project that uses `brain.db`:
+
+```
+brain.db merge=brain
+```
+
+When git encounters a `brain.db` conflict it calls `brain merge <base> <ours> <theirs>`. The driver:
+
+- Takes clean changes from either branch with no intervention needed
+- Embeds `<<<<<<< ours` / `=======` / `>>>>>>> theirs` markers in any node whose content diverged on both sides, and sets `needs_review = 1` on that node
+- Unions all edges, justifications (matched by content, not group ID), and event logs from both branches
+- Appends a `merge` event to the audit log recording whether the merge was clean or had conflicts
+- Exits 0 on a clean merge, 1 when conflicts remain (git will report the merge as failed)
+
+**Resolving conflicts:**
+
+```bash
+# Find nodes with markers
+brain search "<<<<<<" --all
+
+# Inspect and resolve
+brain query <label>
+brain assert <label> <type> "resolved content here"
+```
 
 ## LLM integration (experimental)
 
