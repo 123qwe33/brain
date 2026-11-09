@@ -102,7 +102,7 @@ That means the node depends on both.
 ---
 
 4. `brain query`
-Use this to ask, “What is currently true?”
+Use this to ask, “What is currently true?” (or “What was completed?”)
 
 Examples:
   ┌──────────────────────────────────────────────────────────── bash
@@ -120,7 +120,27 @@ Shows only project facts.
   └────────────────────────────────────────────────────────────
 Shows the content for that node.
 
-This is the “what do we know right now?” command.
+To review OUT (invalidated) nodes — the most common use is checking completed tasks:
+
+  ┌──────────────────────────────────────────────────────────── bash
+  │ brain query --out
+  └────────────────────────────────────────────────────────────
+Lists all OUT nodes with their invalidation timestamp (or no timestamp for
+nodes that cascaded OUT rather than being explicitly invalidated).
+
+  ┌──────────────────────────────────────────────────────────── bash
+  │ brain query --out --type task
+  └────────────────────────────────────────────────────────────
+Completed tasks only — the idiomatic PM workflow invocation.
+
+  ┌──────────────────────────────────────────────────────────── bash
+  │ brain query --out task_setup_ci
+  └────────────────────────────────────────────────────────────
+Shows the content of a specific OUT node. Exits 1 if the node doesn't exist
+or is not OUT.
+
+This is the “what do we know right now?” command — and with --out,
+“what did we complete or invalidate?”
 
 ---
 

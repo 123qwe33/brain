@@ -13,6 +13,7 @@ import (
 
 var (
 	queryTypeFlag    string
+	queryOutFlag     bool
 	relationsInFlag  bool
 	graphDepthFlag   int
 	logNodeFlag      string
@@ -60,6 +61,32 @@ var (
 		Args:  cobra.MaximumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			r := getRMS()
+			if queryOutFlag {
+				if len(args) == 0 {
+					nodes, err := r.QueryOut(queryTypeFlag)
+					if err != nil {
+						log.Fatalf("Error querying OUT nodes: %v", err)
+					}
+					for _, node := range nodes {
+						if node.InvalidatedAt != "" {
+							fmt.Printf("%s\t%s\n", node.Label, node.InvalidatedAt)
+						} else {
+							fmt.Println(node.Label)
+						}
+					}
+				} else {
+					content, err := r.QueryLabelOut(args[0])
+					if err != nil {
+						log.Fatalf("Error querying OUT node: %v", err)
+					}
+					if content != "" {
+						fmt.Println(content)
+					} else {
+						os.Exit(1)
+					}
+				}
+				return
+			}
 			if len(args) == 0 {
 				if queryTypeFlag != "" {
 					nodes, err := r.QueryType(queryTypeFlag)
@@ -307,6 +334,7 @@ and needs_review is set to 1. Exits 0 on a clean merge, 1 when conflicts remain.
 func init() {
 	assertCmd.Flags().Float64Var(&assertConfidence, "confidence", 1.0, "Confidence score 0.0–1.0 (default 1.0 for new nodes, preserved for existing)")
 	queryCmd.Flags().StringVarP(&queryTypeFlag, "type", "t", "", "Filter by node type")
+	queryCmd.Flags().BoolVar(&queryOutFlag, "out", false, "List OUT (invalidated) nodes instead of IN nodes")
 	relationsCmd.Flags().BoolVar(&relationsInFlag, "in", false, "Show incoming edges instead of outgoing")
 	graphCmd.Flags().IntVarP(&graphDepthFlag, "depth", "d", 1, "BFS traversal depth")
 	logCmd.Flags().StringVar(&logNodeFlag, "node", "", "Filter by node label")

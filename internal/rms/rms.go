@@ -723,6 +723,11 @@ type SearchResult struct {
 	Content string
 }
 
+type OutNode struct {
+	Label         string
+	InvalidatedAt string // empty when status was cascaded, not explicitly invalidated
+}
+
 func (r *RMS) Search(text string, includeOut bool) ([]SearchResult, error) {
 	pattern := "%" + text + "%"
 	query := `SELECT label, type, status, COALESCE(content,'')
@@ -749,6 +754,49 @@ func (r *RMS) Search(text string, includeOut bool) ([]SearchResult, error) {
 		results = append(results, s)
 	}
 	return results, rows.Err()
+}
+
+func (r *RMS) QueryOut(nodeType string) ([]OutNode, error) {
+	query := `SELECT n.label,
+		COALESCE((SELECT MAX(e.occurred_at) FROM events e
+		          WHERE e.node_label = n.label
+		          AND e.event_type = 'node_invalidated'), '') AS invalidated_at
+		FROM nodes n
+		WHERE n.status = 'OUT'`
+	args := []any{}
+	if nodeType != "" {
+		query += " AND n.type = ?"
+		args = append(args, nodeType)
+	}
+	query += " ORDER BY invalidated_at DESC, n.label"
+
+	rows, err := r.db.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []OutNode
+	for rows.Next() {
+		var n OutNode
+		if err := rows.Scan(&n.Label, &n.InvalidatedAt); err != nil {
+			return nil, err
+		}
+		results = append(results, n)
+	}
+	return results, rows.Err()
+}
+
+func (r *RMS) QueryLabelOut(label string) (string, error) {
+	var content string
+	err := r.db.QueryRow("SELECT content FROM nodes WHERE label = ? AND status = 'OUT'", label).Scan(&content)
+	if err == sql.ErrNoRows {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	return content, nil
 }
 
 func (r *RMS) Relations(label string, incoming bool) ([]Edge, error) {

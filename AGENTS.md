@@ -7,6 +7,8 @@
 ```bash
 brain query                      # all IN nodes (your starting point)
 brain query <label>              # content of a specific node
+brain query --out                # all OUT nodes + invalidation timestamps
+brain query --out --type task    # completed tasks (idiomatic PM usage)
 brain relations <label>          # outgoing edges
 brain relations <label> --in     # incoming edges
 brain graph <label> --depth 2    # BFS neighborhood as JSON

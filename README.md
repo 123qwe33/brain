@@ -40,6 +40,9 @@ go build -o brain ./cmd/brain
 | `brain query` | List all IN nodes |
 | `brain query <label>` | Get a node's content |
 | `brain query --type <type>` | Filter IN nodes by type |
+| `brain query --out` | List all OUT nodes with invalidation timestamps |
+| `brain query --out --type <type>` | Filter OUT nodes by type |
+| `brain query --out <label>` | Content of a specific OUT node |
 | `brain link <from> <to> <relation>` | Add a directed edge |
 | `brain unlink <from> <to> <relation>` | Remove a directed edge |
 | `brain relations <label>` | Show outgoing edges |
